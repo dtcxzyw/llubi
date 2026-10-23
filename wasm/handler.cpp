@@ -136,12 +136,11 @@ void WebEventHandler::onImmediateUB(llvm::StringRef Msg) {
 
 void WebEventHandler::onUnrecognizedInstruction(llvm::Instruction &I) {
   RuntimeIssue Issue;
+  StackFrame Frame = locate(I);
   Issue.Kind = "unsupported";
-  Issue.Message = "Unrecognized instruction.";
-  Issue.Frames.push_back(locate(I));
-  Issue.Detail = Issue.Frames.front().Instruction;
-  Issue.Line = Issue.Frames.front().Line;
-  Issue.Column = Issue.Frames.front().Column;
+  Issue.Message = "Unrecognized instruction: " + Frame.Instruction;
+  Issue.Line = Frame.Line;
+  Issue.Column = Frame.Column;
   Issues.push_back(std::move(Issue));
 }
 

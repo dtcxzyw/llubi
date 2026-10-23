@@ -690,9 +690,7 @@ function buildCheckLines(result: RunResult, runOptions: RunOptions): string {
     if (diagnostic.kind === 'immediate-ub') {
       lines.push(`Immediate UB detected: ${diagnostic.message}`);
     } else if (diagnostic.kind === 'unsupported') {
-      lines.push(
-        `Unrecognized instruction: ${diagnostic.detail ?? diagnostic.message}`,
-      );
+      lines.push(diagnostic.message);
     } else if (diagnostic.kind === 'error') {
       lines.push(`Error: ${diagnostic.message}`);
     }
@@ -985,12 +983,9 @@ function renderDiagnostic(diagnostic: Diagnostic): HTMLElement {
   }
 
   if (diagnostic.detail) {
-    const details = document.createElement('details');
-    details.className = 'diagnostic-detail';
-    const summary = document.createElement('summary');
-    summary.textContent = 'details';
-    details.append(summary, element('pre', 'output-text', diagnostic.detail));
-    article.append(details);
+    article.append(
+      element('pre', 'output-text diagnostic-detail-text', diagnostic.detail),
+    );
   }
   return article;
 }

@@ -43,6 +43,8 @@ test('reports parse errors without running the program', async ({ page }) => {
   await page.keyboard.type('\nthis is not IR\n');
   await expect(page.locator('#status')).toHaveClass(/status-error/);
   await expect(page.locator('#output')).toContainText('parse');
+  await expect(page.locator('#output details')).toHaveCount(0);
+  await expect(page.locator('.diagnostic-detail-text')).toBeVisible();
   await expect(page.locator('.cm-error-line')).toHaveCount(1);
 });
 
@@ -511,4 +513,24 @@ test('disables stale test generation after edits', async ({ page }) => {
   await page.keyboard.type('\n');
   await expect(page.locator('#copy-checks')).toBeDisabled();
   await expect(page.locator('#generate-test')).toBeDisabled();
+});
+
+test('shows unsupported instructions directly without a stack list', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Manual' }).click();
+  const editor = page.locator('.cm-content');
+  await editor.click();
+  await page.keyboard.press('Control+A');
+  await page.keyboard.insertText(
+    'declare i32 @unknown()\ndefine i32 @main() {\n  %res = call i32 @unknown()\n  ret i32 %res\n}\n',
+  );
+  await page.locator('#run').click();
+  await expect(page.locator('#status')).toHaveClass(/status-error/);
+  await expect(page.locator('#output')).toContainText(
+    'Unrecognized instruction:   %res = call i32 @unknown()',
+  );
+  await expect(page.locator('#output .stack')).toHaveCount(0);
 });
