@@ -766,7 +766,7 @@ test('applies and persists explicit and accessible themes', async ({
       error: style.getPropertyValue('--error').trim(),
     };
   });
-  expect(colorblind).toEqual({ accent: '#56b4e9', error: '#e06900' });
+  expect(colorblind).toEqual({ accent: '#56b4e9', error: '#e67300' });
 
   await select.selectOption('high-contrast');
   await expect(page.locator('html')).toHaveAttribute(

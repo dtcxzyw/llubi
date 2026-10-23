@@ -63,7 +63,9 @@ used automatically when available.
   Manual exposes an explicit Run action. Ctrl/Cmd+Enter always runs.
 - The theme picker follows the system light/dark appearance by default and also
   offers explicit light, dark, colorblind-friendly, and high-contrast themes;
-  the choice is stored locally.
+  the choice is stored locally. Themes meet WCAG AA text and control-boundary
+  contrast, with the high-contrast text palette exceeding AAA, and typography
+  scales to 200% without losing access to content.
 - Execution happens in a Web Worker; a new edit supersedes an in-flight run,
   and long runs are killed after 10 seconds.
 - Verbose trace rows jump to their instruction, call site, function, or label in
