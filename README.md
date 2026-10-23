@@ -70,7 +70,8 @@ used automatically when available.
 - The output pane separates program output from interpreter diagnostics and
   trace with a draggable horizontal divider that starts at 1/6 and 5/6.
 - The toolbar shows the equivalent `; RUN:` line for the last run and copies it
-  when clicked. The output header can copy generated FileCheck lines; stdout and stderr
+  when clicked. The output header can copy generated FileCheck lines or generate
+  a complete lit test with the update header, RUN line, cleaned IR, and checks; stdout and stderr
   are combined in execution order like `update_llubi_test_checks.py`, and
   failing runs get a `not ` prefix.
 - The wasm build enables LLVM assertions while forcing ABI-breaking checks off.
