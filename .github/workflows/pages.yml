@@ -1,0 +1,149 @@
+name: pages
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Build the latest LLVM main every day. The previous deployment is kept if
+    # the upstream tree does not build.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      llvm_ref:
+        description: LLVM branch, tag, or commit
+        required: false
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      LLUBI_JOBS: '4'
+    steps:
+      - name: Checkout playground
+        uses: actions/checkout@v4
+
+      - name: Resolve LLVM ref
+        id: llvm
+        env:
+          INPUT_REF: ${{ github.event.inputs.llvm_ref }}
+        run: |
+          ref="${INPUT_REF:-main}"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout LLVM
+        uses: actions/checkout@v4
+        with:
+          repository: llvm/llvm-project
+          ref: ${{ steps.llvm.outputs.ref }}
+          path: llvm-project
+          fetch-depth: 1
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
+
+      - name: Configure ccache
+        run: |
+          echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
+          echo "CCACHE_MAXSIZE=2G" >> "$GITHUB_ENV"
+          echo "CCACHE_COMPRESS=true" >> "$GITHUB_ENV"
+
+      - name: Cache local toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/llubi-web
+          key: llubi-tools-${{ runner.os }}-${{ hashFiles('scripts/setup.sh') }}
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: llubi-ccache-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            llubi-ccache-${{ runner.os }}-
+
+      - name: Cache npm downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: llubi-npm-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+          restore-keys: |
+            llubi-npm-${{ runner.os }}-
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: llubi-playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+
+      - name: Setup Node.js and Emscripten
+        run: bash scripts/setup.sh
+
+      - name: Configure Pages base path
+        id: base
+        run: |
+          repo="${GITHUB_REPOSITORY#*/}"
+          if [[ "$repo" == *.github.io ]]; then
+            base="/"
+          else
+            base="/$repo/"
+          fi
+          printf 'path=%s\n' "$base" >> "$GITHUB_OUTPUT"
+          printf 'VITE_BASE_PATH=%s\n' "$base" >> "$GITHUB_ENV"
+          printf 'PLAYWRIGHT_BASE_URL=http://127.0.0.1:4173%s\n' "$base" >> "$GITHUB_ENV"
+
+      - name: Build WebAssembly module
+        run: |
+          python3 scripts/build.py \
+            --llvm-source "$GITHUB_WORKSPACE/llvm-project" \
+            --jobs "$LLUBI_JOBS"
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Build web app
+        working-directory: web
+        run: npm run build
+
+      - name: Smoke test wasm API
+        working-directory: web
+        run: npm run smoke
+
+      - name: Install Playwright browser
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser smoke tests
+        working-directory: web
+        run: npm run test:e2e
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
