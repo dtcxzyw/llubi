@@ -276,7 +276,10 @@ function handleWorkerMessage(message: WorkerResponse): void {
 function destroyWorker(): void {
   window.clearTimeout(runTimeout);
   runTimeout = undefined;
-  worker?.terminate();
+  if (!worker) return;
+  worker.onmessage = null;
+  worker.onerror = null;
+  worker.terminate();
   worker = null;
 }
 
