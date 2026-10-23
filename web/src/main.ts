@@ -13,7 +13,7 @@ import type {
 } from './protocol';
 import { DEFAULT_OPTIONS } from './protocol';
 import { HELLO_IR, UB_IR } from './samples';
-import { setupSplitter } from './split';
+import { setupOutputSplitter, setupSplitter } from './split';
 
 const STORAGE_IR = 'llubi.ir';
 const STORAGE_OPTIONS = 'llubi.options';
@@ -33,6 +33,9 @@ const entryMenu = byId<HTMLUListElement>('entry-menu');
 const sampleHello = byId<HTMLButtonElement>('sample-hello');
 const sampleUb = byId<HTMLButtonElement>('sample-ub');
 const outputElement = byId<HTMLElement>('output');
+const printOutput = byId<HTMLElement>('print-output');
+const otherOutput = byId<HTMLElement>('other-output');
+const outputResizer = byId<HTMLElement>('output-resizer');
 const outputMeta = byId<HTMLElement>('output-meta');
 const runCommandElement = byId<HTMLElement>('run-command');
 const copyRunButton = byId<HTMLButtonElement>('copy-run');
@@ -93,6 +96,7 @@ async function start(): Promise<void> {
   );
 
   setupSplitter(splitElement, splitter, editorPane);
+  setupOutputSplitter(outputElement, outputResizer, printOutput.parentElement!);
   applyOptionsToForm(options);
   applyRunMode(autoRun);
   updateEditorMeta(initialIR);
@@ -465,8 +469,11 @@ function setStatus(text: string, kind: 'idle' | 'running' | 'ok' | 'warn' | 'err
 function renderEmpty(): void {
   outputMeta.textContent = '';
   setCheckLines('');
-  outputElement.replaceChildren(
-    element('p', 'empty', 'Edit the IR or press Run. Output appears here.'),
+  printOutput.replaceChildren(
+    element('p', 'empty', 'No program output.'),
+  );
+  otherOutput.replaceChildren(
+    element('p', 'empty', 'Edit the IR or press Run. Diagnostics and trace appear here.'),
   );
 }
 
@@ -483,7 +490,8 @@ function renderFatal(message: string): void {
       'The wasm worker was restarted; the next run will use a fresh instance.',
     ),
   );
-  outputElement.replaceChildren(box);
+  printOutput.replaceChildren(element('p', 'empty', 'No program output.'));
+  otherOutput.replaceChildren(box);
   outputMeta.textContent = '';
 }
 
@@ -647,15 +655,6 @@ function renderResult(result: RunResult, runOptions: RunOptions): void {
     root.append(diagnostics);
   }
 
-  if (result.stdout) {
-    const block = element('section', 'block');
-    block.append(
-      element('h2', 'block-title', 'stdout'),
-      element('pre', 'output-text', result.stdout),
-    );
-    root.append(block);
-  }
-
   if (result.trace.length > 0) {
     const trace = element('section', 'block');
     trace.append(
@@ -672,15 +671,16 @@ function renderResult(result: RunResult, runOptions: RunOptions): void {
     );
     root.append(stderr);
   }
-  if (
-    !result.stdout &&
-    result.trace.length === 0 &&
-    result.diagnostics.length === 0
-  ) {
-    root.append(element('p', 'empty', 'Program produced no output.'));
+  if (result.trace.length === 0 && result.diagnostics.length === 0) {
+    root.append(element('p', 'empty', 'No diagnostics or trace.'));
   }
 
-  outputElement.replaceChildren(root);
+  printOutput.replaceChildren(
+    result.stdout
+      ? element('pre', 'output-text', result.stdout)
+      : element('p', 'empty', 'No program output.'),
+  );
+  otherOutput.replaceChildren(root);
 }
 
 function renderTrace(entries: TraceEntry[]): HTMLElement {

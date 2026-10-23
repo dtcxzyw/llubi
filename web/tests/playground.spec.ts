@@ -307,3 +307,37 @@ test('uses not and non-default options in RUN, and generates error checks', asyn
     "; CHECK-NEXT: error: Execution of function 'main' failed.",
   );
 });
+
+test('splits print output at one quarter height', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await expect(page.locator('.print-section .output-section-header')).toHaveText(
+    'print',
+  );
+  await expect(
+    page.locator('.other-section .output-section-header'),
+  ).toHaveText('other output');
+
+  const metrics = await page.evaluate(() => {
+    const split = document.querySelector('#output')!.getBoundingClientRect();
+    const print = document.querySelector('.print-section')!.getBoundingClientRect();
+    const other = document.querySelector('.other-section')!.getBoundingClientRect();
+    return {
+      total: split.height,
+      print: print.height,
+      other: other.height,
+    };
+  });
+  expect(metrics.print / metrics.total).toBeGreaterThan(0.2);
+  expect(metrics.print / metrics.total).toBeLessThan(0.3);
+  expect(metrics.other / metrics.total).toBeGreaterThan(0.7);
+  expect(metrics.other / metrics.total).toBeLessThan(0.8);
+
+  const before = metrics.print;
+  await page.locator('#output-resizer').focus();
+  await page.keyboard.press('ArrowDown');
+  const after = await page
+    .locator('.print-section')
+    .evaluate((node) => node.getBoundingClientRect().height);
+  expect(after).toBeGreaterThan(before);
+});

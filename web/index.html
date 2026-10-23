@@ -216,7 +216,26 @@
               </button>
             </span>
           </div>
-          <div id="output" class="output" aria-live="polite"></div>
+          <div id="output" class="output-split" aria-live="polite">
+            <section class="output-section print-section">
+              <div class="output-section-header">print</div>
+              <div id="print-output" class="output-scroll"></div>
+            </section>
+            <div
+              id="output-resizer"
+              class="output-resizer"
+              role="separator"
+              aria-orientation="horizontal"
+              aria-label="Resize print output"
+              aria-valuemin="15"
+              aria-valuemax="85"
+              tabindex="0"
+            ></div>
+            <section class="output-section other-section">
+              <div class="output-section-header">other output</div>
+              <div id="other-output" class="output-scroll"></div>
+            </section>
+          </div>
         </section>
       </main>
     </div>
