@@ -177,8 +177,51 @@ button {
   flex-wrap: wrap;
 }
 
-.toolbar .spacer {
+.run-command-wrap {
+  flex: 1 1 320px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.run-command {
   flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: nowrap;
+  scrollbar-width: thin;
+}
+
+.copy-button {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 7px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.copy-button:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.copy-button:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 [hidden] {
@@ -527,8 +570,14 @@ button:disabled {
 .pane-status {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
+}
+
+.pane-status .copy-button {
+  margin-left: 2px;
 }
 
 .pane-status .status {

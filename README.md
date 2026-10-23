@@ -64,6 +64,10 @@ used automatically when available.
 - Verbose trace rows jump to their instruction, call site, function, or label in
   the editor; clicking a source line or line number jumps back to the matching
   trace row.
+- The toolbar shows the equivalent `; RUN:` line for the last run and can copy
+  it. The output header can copy generated FileCheck lines; stdout and stderr
+  are combined in execution order like `update_llubi_test_checks.py`, and
+  failing runs get a `not ` prefix.
 - The wasm build enables LLVM assertions while forcing ABI-breaking checks off.
   A crash is reported as an internal interpreter error with the assertion or
   LLVM fatal message, and the worker is recreated for the next run.

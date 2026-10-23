@@ -52,7 +52,15 @@
         <button id="run" class="primary" type="button" hidden title="Run (Ctrl/Cmd+Enter)">
           Run
         </button>
-        <span class="spacer"></span>
+        <div
+          class="run-command-wrap"
+          title="Command for the current run, ready to paste into a lit test"
+        >
+          <code id="run-command" class="run-command">; RUN: llubi --verbose &lt; %s 2&gt;&amp;1 | FileCheck %s</code>
+          <button id="copy-run" class="copy-button" type="button" aria-label="Copy test command">
+            copy
+          </button>
+        </div>
         <button id="params-toggle" class="secondary" type="button" aria-expanded="false">
           Parameters
         </button>
@@ -197,6 +205,15 @@
             <span class="pane-status">
               <span id="status" class="status" role="status">starting...</span>
               <span id="output-meta" class="pane-meta"></span>
+              <button
+                id="copy-checks"
+                class="copy-button"
+                type="button"
+                title="Copy generated FileCheck lines"
+                disabled
+              >
+                copy check lines
+              </button>
             </span>
           </div>
           <div id="output" class="output" aria-live="polite"></div>

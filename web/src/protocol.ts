@@ -73,6 +73,7 @@ export interface Diagnostic {
   line?: number;
   column?: number;
   detail?: string;
+  kind?: string;
   frames?: StackFrame[];
 }
 

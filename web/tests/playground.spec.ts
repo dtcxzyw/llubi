@@ -66,11 +66,11 @@ test('fills the viewport and starts with centered panes', async ({ page }) => {
 test('hides Run while auto-run is active', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('#status')).toHaveClass(/status-ok/);
-  await expect(page.getByRole('button', { name: 'Run' })).toBeHidden();
+  await expect(page.locator('#run')).toBeHidden();
   await page.getByRole('button', { name: 'Manual' }).click();
-  await expect(page.getByRole('button', { name: 'Run' })).toBeVisible();
+  await expect(page.locator('#run')).toBeVisible();
   await page.getByRole('button', { name: 'Auto' }).click();
-  await expect(page.getByRole('button', { name: 'Run' })).toBeHidden();
+  await expect(page.locator('#run')).toBeHidden();
 });
 
 test('links parameters to the llubi and LangRef documentation', async ({ page }) => {
@@ -168,7 +168,7 @@ test('suggests defined functions for the entry point', async ({ page }) => {
   await expect(options.filter({ hasText: 'foo' })).toHaveCount(1);
 
   await page.locator('#opt-entry').fill('foo');
-  await page.getByRole('button', { name: 'Run' }).click();
+  await page.locator('#run').click();
   await expect(page.locator('#status')).toHaveClass(/status-ok/);
   await expect(page.locator('#output')).toContainText('Entering function: foo');
 });
@@ -212,7 +212,7 @@ done:
   await editor.click();
   await page.keyboard.press('Control+A');
   await page.keyboard.insertText(source);
-  await page.getByRole('button', { name: 'Run' }).click();
+  await page.locator('#run').click();
   await expect(page.locator('.trace-row')).toHaveCount(4);
 
   await page.locator('.trace-line', { hasText: 'Entering function: main' }).click();
@@ -252,4 +252,58 @@ test('shows exit status and duration in the output header only', async ({
   await expect(page.locator('.pane-header #status')).toContainText('returned 0');
   await expect(page.locator('.pane-header #output-meta')).toContainText('ms');
   await expect(page.locator('#output .result-summary')).toHaveCount(0);
+});
+
+test('copies the RUN line and generated check lines', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+
+  const command = page.locator('#run-command');
+  await expect(command).toHaveText(
+    '; RUN: llubi --verbose < %s 2>&1 | FileCheck %s',
+  );
+  await page.locator('#copy-run').click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    await command.textContent(),
+  );
+
+  await expect(page.locator('#copy-checks')).toBeEnabled();
+  await page.locator('#copy-checks').click();
+  const checks = await page.evaluate(() => navigator.clipboard.readText());
+  expect(checks).toContain('; CHECK: Entering function: main');
+  expect(checks).toContain('; CHECK-NEXT: Hello from llubi');
+  expect(checks).toContain(
+    '; CHECK-NEXT:   %r = call i32 (ptr, ...) @printf',
+  );
+  expect(checks).toContain('; CHECK-NEXT: Exiting function: main');
+});
+
+test('uses not and non-default options in RUN, and generates error checks', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Parameters' }).click();
+  await page.locator('#opt-max-steps').fill('1');
+  await expect(page.locator('#status')).toHaveClass(/status-error/);
+
+  const command = await page.locator('#run-command').textContent();
+  expect(command).toContain('; RUN: not llubi --verbose --max-steps=1');
+  expect(command).not.toContain('--max-mem');
+  expect(command).not.toContain('--vscale');
+
+  await page.locator('#copy-checks').click();
+  const checks = await page.evaluate(() => navigator.clipboard.readText());
+  expect(checks).toContain(
+    '; CHECK-NEXT: Error: Exceeded maximum number of execution steps.',
+  );
+  expect(checks).toContain(
+    "; CHECK-NEXT: error: Execution of function 'main' failed.",
+  );
 });

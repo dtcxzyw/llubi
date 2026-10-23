@@ -191,8 +191,33 @@ bool WebEventHandler::onFunctionExit(llvm::Function &F,
 }
 
 bool WebEventHandler::onPrint(llvm::StringRef Msg) {
+  if (Verbose)
+    appendTrace(0, Msg, "stdout");
   appendStdout(Msg);
   return true;
+}
+
+void WebEventHandler::onProgramExit(const llvm::ubi::ProgramExitInfo &Info) {
+  if (!Verbose)
+    return;
+  std::string Text;
+  llvm::raw_string_ostream OS(Text);
+  switch (Info.Kind) {
+  case llvm::ubi::ProgramExitInfo::ProgramExitKind::Returned:
+  case llvm::ubi::ProgramExitInfo::ProgramExitKind::Failed:
+    return;
+  case llvm::ubi::ProgramExitInfo::ProgramExitKind::Exited:
+    OS << "Program exited with code " << Info.ExitCode << '\n';
+    break;
+  case llvm::ubi::ProgramExitInfo::ProgramExitKind::Aborted:
+    OS << "Program aborted.\n";
+    break;
+  case llvm::ubi::ProgramExitInfo::ProgramExitKind::Terminated:
+    OS << "Program terminated.\n";
+    break;
+  }
+  OS.flush();
+  appendTrace(0, Text, "program");
 }
 
 } // namespace llubi_web

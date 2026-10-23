@@ -647,8 +647,11 @@ std::string runLlubi(StringRef IR, StringRef OptionsText) {
     int Column = Issue.Column;
     if (Line == 0 && !IssueFrames.empty())
       Line = IssueFrames.front().Line;
-    AddDiagnostic("runtime", "error", Issue.Message, Line, Column, Issue.Detail,
-                  IssueFrames);
+    json::Object Diagnostic =
+        makeDiagnostic("runtime", "error", Issue.Message, Line, Column,
+                       Issue.Detail, IssueFrames);
+    Diagnostic["kind"] = Issue.Kind;
+    Diagnostics.push_back(std::move(Diagnostic));
     Ok = false;
   }
 

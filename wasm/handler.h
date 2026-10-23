@@ -59,6 +59,7 @@ public:
   bool onFunctionExit(llvm::Function &F,
                       const llvm::ubi::AnyValue &RetVal) override;
   bool onPrint(llvm::StringRef Msg) override;
+  void onProgramExit(const llvm::ubi::ProgramExitInfo &Info) override;
 
   const std::string &stdoutText() const { return Stdout; }
   const std::vector<TraceEntry> &traceEntries() const { return TraceEntries; }

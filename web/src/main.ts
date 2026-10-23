@@ -34,6 +34,9 @@ const sampleHello = byId<HTMLButtonElement>('sample-hello');
 const sampleUb = byId<HTMLButtonElement>('sample-ub');
 const outputElement = byId<HTMLElement>('output');
 const outputMeta = byId<HTMLElement>('output-meta');
+const runCommandElement = byId<HTMLElement>('run-command');
+const copyRunButton = byId<HTMLButtonElement>('copy-run');
+const copyChecksButton = byId<HTMLButtonElement>('copy-checks');
 const editorMeta = byId<HTMLElement>('editor-meta');
 const buildInfoElement = byId<HTMLElement>('build-info');
 const splitElement = byId<HTMLElement>('split');
@@ -70,6 +73,8 @@ let definedFunctions: string[] = [];
 let entryMatches: string[] = [];
 let entryActiveIndex = -1;
 let entryMenuOpen = false;
+let activeRunOptions: RunOptions | null = null;
+let lastCheckLines = '';
 
 const initialIR = localStorage.getItem(STORAGE_IR) ?? HELLO_IR;
 let editor: EditorController;
@@ -93,6 +98,8 @@ async function start(): Promise<void> {
   updateEditorMeta(initialIR);
   updateEntryFunctions(initialIR);
   renderEmpty();
+  updateRunCommand(options, null);
+  setCheckLines('');
   if (autoRun) scheduleRun(0);
   else runNow();
 
@@ -112,6 +119,12 @@ async function start(): Promise<void> {
   });
   sampleHello.addEventListener('click', () => loadSample(HELLO_IR));
   sampleUb.addEventListener('click', () => loadSample(UB_IR));
+  copyRunButton.addEventListener('click', () =>
+    copyText(runCommandElement.textContent ?? '', copyRunButton),
+  );
+  copyChecksButton.addEventListener('click', () =>
+    copyText(lastCheckLines, copyChecksButton),
+  );
 
   for (const input of Object.values(optionInputs)) {
     input.addEventListener('input', onOptionsChanged);
@@ -371,6 +384,7 @@ function runNow(): void {
   busy = true;
   setStatus('running...', 'running');
   outputMeta.textContent = '';
+  setCheckLines('');
 
   const request: WorkerRequest = {
     id,
@@ -378,6 +392,8 @@ function runNow(): void {
     options: readOptionsFromForm(),
   };
   options = request.options;
+  activeRunOptions = request.options;
+  updateRunCommand(activeRunOptions, null);
   saveOptions();
 
   const current = ensureWorker();
@@ -428,7 +444,7 @@ function handleWorkerMessage(message: WorkerResponse): void {
     setStatus('internal error', 'error');
     return;
   }
-  renderResult(message.result);
+  renderResult(message.result, activeRunOptions ?? options);
 }
 
 function destroyWorker(): void {
@@ -448,6 +464,7 @@ function setStatus(text: string, kind: 'idle' | 'running' | 'ok' | 'warn' | 'err
 
 function renderEmpty(): void {
   outputMeta.textContent = '';
+  setCheckLines('');
   outputElement.replaceChildren(
     element('p', 'empty', 'Edit the IR or press Run. Output appears here.'),
   );
@@ -455,6 +472,7 @@ function renderEmpty(): void {
 
 function renderFatal(message: string): void {
   editor.clearDiagnostics();
+  setCheckLines('');
   const box = element('div', 'result result-error');
   box.append(
     element('div', 'result-summary', 'Internal interpreter error'),
@@ -469,11 +487,140 @@ function renderFatal(message: string): void {
   outputMeta.textContent = '';
 }
 
-function renderResult(result: RunResult): void {
+function shellQuote(value: string): string {
+  if (value === '') return "''";
+  if (/^[A-Za-z0-9_./:=+,-]+$/.test(value)) return value;
+  return "'" + value.replaceAll("'", "'\\''") + "'";
+}
+
+function buildRunCommand(
+  runOptions: RunOptions,
+  result: RunResult | null,
+): string {
+  const parts = ['llubi', '--verbose'];
+  if (runOptions.entryFunction !== DEFAULT_OPTIONS.entryFunction)
+    parts.push(`--entry-function=${shellQuote(runOptions.entryFunction)}`);
+  if (runOptions.fakeArgv0)
+    parts.push(`--fake-argv0=${shellQuote(runOptions.fakeArgv0)}`);
+  if (runOptions.deterministic) parts.push('--deterministic');
+  if (runOptions.maxMemMiB !== DEFAULT_OPTIONS.maxMemMiB)
+    parts.push(`--max-mem=${runOptions.maxMemMiB * 1024 * 1024}`);
+  if (runOptions.maxSteps !== DEFAULT_OPTIONS.maxSteps)
+    parts.push(`--max-steps=${runOptions.maxSteps}`);
+  if (runOptions.maxStackDepth !== DEFAULT_OPTIONS.maxStackDepth)
+    parts.push(`--max-stack-depth=${runOptions.maxStackDepth}`);
+  if (runOptions.vscale !== DEFAULT_OPTIONS.vscale)
+    parts.push(`--vscale=${runOptions.vscale}`);
+  if (runOptions.seed !== DEFAULT_OPTIONS.seed)
+    parts.push(`--seed=${runOptions.seed}`);
+  if (runOptions.undefBehavior !== DEFAULT_OPTIONS.undefBehavior)
+    parts.push(`--undef-behavior=${runOptions.undefBehavior}`);
+  if (runOptions.nanBehavior !== DEFAULT_OPTIONS.nanBehavior)
+    parts.push(`--nan-behavior=${runOptions.nanBehavior}`);
+  if (!runOptions.fuseFMulAdd) parts.push('--fuse-fmuladd=false');
+  if (runOptions.disableVerify) parts.push('--disable-verify');
+  if (runOptions.argv.length > 0)
+    parts.push('--', ...runOptions.argv.map(shellQuote));
+
+  const needsNot = result !== null && (!result.ok || result.exit.code !== 0);
+  return `; RUN: ${needsNot ? 'not ' : ''}${parts.join(' ')} < %s 2>&1 | FileCheck %s`;
+}
+
+function updateRunCommand(
+  runOptions: RunOptions,
+  result: RunResult | null,
+): void {
+  const command = buildRunCommand(runOptions, result);
+  runCommandElement.textContent = command;
+  runCommandElement.title = command;
+}
+
+function buildCheckLines(result: RunResult, runOptions: RunOptions): string {
+  const lines: string[] = [];
+  for (const entry of result.trace) lines.push(...entry.text.split('\n'));
+
+  if (result.stderr) {
+    const stderr = result.stderr
+      .replace(/\r\n/g, '\n')
+      .replace(/<input>/g, '<stdin>');
+    lines.push(...stderr.split('\n'));
+    while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+  }
+
+  for (const diagnostic of result.diagnostics) {
+    if (diagnostic.phase !== 'runtime') continue;
+    if (diagnostic.kind === 'immediate-ub') {
+      lines.push(`Immediate UB detected: ${diagnostic.message}`);
+    } else if (diagnostic.kind === 'unsupported') {
+      lines.push(
+        `Unrecognized instruction: ${diagnostic.detail ?? diagnostic.message}`,
+      );
+    } else if (diagnostic.kind === 'error') {
+      lines.push(`Error: ${diagnostic.message}`);
+    }
+  }
+
+  if (result.exit.kind === 'failed') {
+    lines.push(
+      `error: Execution of function '${runOptions.entryFunction}' failed.`,
+    );
+  } else if (
+    !result.ok &&
+    result.diagnostics.some((diagnostic) =>
+      /poison return value/i.test(diagnostic.message),
+    )
+  ) {
+    lines.push(
+      `error: Execution of function '${runOptions.entryFunction}' resulted in poison return value.`,
+    );
+  }
+
+  return lines
+    .map((line, index) => `; ${index === 0 ? 'CHECK' : 'CHECK-NEXT'}: ${line}`)
+    .join('\n');
+}
+
+function setCheckLines(text: string): void {
+  lastCheckLines = text;
+  copyChecksButton.disabled = text.length === 0;
+}
+
+async function copyText(text: string, button: HTMLButtonElement): Promise<void> {
+  if (!text) return;
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    copied = true;
+  } catch {
+    copied = fallbackCopy(text);
+  }
+  if (!copied) return;
+  const original = (button.textContent ?? 'copy').trim();
+  button.textContent = 'copied';
+  window.setTimeout(() => {
+    button.textContent = original;
+  }, 1200);
+}
+
+function fallbackCopy(text: string): boolean {
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.style.position = 'fixed';
+  area.style.opacity = '0';
+  document.body.append(area);
+  area.select();
+  const copied = document.execCommand('copy');
+  area.remove();
+  return copied;
+}
+
+function renderResult(result: RunResult, runOptions: RunOptions): void {
   editor.setDiagnostics(result.diagnostics);
   outputMeta.textContent = `${result.durationMs} ms${
     result.truncated ? ' · truncated' : ''
   }`;
+  updateRunCommand(runOptions, result);
+  setCheckLines(buildCheckLines(result, runOptions));
 
   const failed = !result.ok || result.exit.kind === 'failed';
   const warning =
@@ -539,6 +686,7 @@ function renderResult(result: RunResult): void {
 function renderTrace(entries: TraceEntry[]): HTMLElement {
   const trace = element('div', 'trace');
   for (const entry of entries) {
+    if (entry.kind === 'stdout') continue;
     const row = element('div', `trace-row trace-${entry.kind ?? 'instruction'}`);
     row.dataset.line = String(entry.line);
     if (entry.targetLine) row.dataset.targetLine = String(entry.targetLine);
