@@ -551,3 +551,13 @@ test('auto-indents LLVM IR on Enter', async ({ page }) => {
     '  %x = alloca i32',
   );
 });
+
+test('opts the editor out of Grammarly', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  const content = page.locator('.cm-content');
+  await expect(content).toHaveAttribute('data-gramm', 'false');
+  await expect(content).toHaveAttribute('data-gramm_editor', 'false');
+  await expect(content).toHaveAttribute('data-enable-grammarly', 'false');
+  await expect(content).toHaveAttribute('spellcheck', 'false');
+});
