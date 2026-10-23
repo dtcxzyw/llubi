@@ -61,6 +61,9 @@ used automatically when available.
   Manual exposes an explicit Run action. Ctrl/Cmd+Enter always runs.
 - Execution happens in a Web Worker; a new edit supersedes an in-flight run,
   and long runs are killed after 10 seconds.
+- The wasm build enables LLVM assertions while forcing ABI-breaking checks off.
+  A crash is reported as an internal interpreter error with the assertion or
+  LLVM fatal message, and the worker is recreated for the next run.
 - Interpreter output is structured JSON. Runtime errors get source lines by
   redirecting LLVM's stderr stack trace to a MEMFS file and parsing the
   `Stacktrace:` frames. This keeps the LLVM checkout unmodified.

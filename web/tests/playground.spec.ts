@@ -148,3 +148,25 @@ test('offers generated metadata completions', async ({ page }) => {
   await expect(popup).toBeVisible();
   await expect(popup).toContainText('!dbg');
 });
+
+test('reports internal errors and recovers the worker', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Manual' }).click();
+  const editor = page.locator('.cm-content');
+  await editor.click();
+  await page.keyboard.press('Control+A');
+  await page.keyboard.insertText(
+    'define i32 @main(target("foo") %x) { ret i32 0 }\n',
+  );
+  await page.getByRole('button', { name: 'Run' }).click();
+  await expect(page.locator('#status')).toHaveClass(/status-error/);
+  await expect(page.locator('#output')).toContainText('Internal interpreter error');
+  await expect(page.locator('#output')).toContainText('UNREACHABLE executed');
+
+  await editor.click();
+  await page.keyboard.press('Control+A');
+  await page.keyboard.insertText('define i32 @main() { ret i32 0 }\n');
+  await page.getByRole('button', { name: 'Run' }).click();
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+});

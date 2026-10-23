@@ -53,12 +53,7 @@ target_link_options(llubi_web PRIVATE
   -sFILESYSTEM=1
   -sEXIT_RUNTIME=0
   -sABORTING_MALLOC=0
-  -sEXPORTED_FUNCTIONS=_malloc,_free,_llubi_run,_llubi_info
+  -sASSERTIONS=1
+  -sEXPORTED_FUNCTIONS=_malloc,_free,_llubi_run,_llubi_info,_llubi_last_error
   -sEXPORTED_RUNTIME_METHODS=cwrap,ccall
   )
-
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  target_link_options(llubi_web PRIVATE -sASSERTIONS=1)
-else()
-  target_link_options(llubi_web PRIVATE -sASSERTIONS=0)
-endif()

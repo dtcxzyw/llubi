@@ -177,7 +177,6 @@ def wasm_configure(
     use_ccache: bool,
 ) -> None:
     build_type = "Debug" if debug else "Release"
-    assertions = "ON" if debug else "OFF"
     configure = [
         "emcmake",
         "cmake",
@@ -203,7 +202,8 @@ def wasm_configure(
         "-DLLVM_ENABLE_THREADS=OFF",
         "-DLLVM_ENABLE_EH=OFF",
         "-DLLVM_ENABLE_RTTI=OFF",
-        f"-DLLVM_ENABLE_ASSERTIONS={assertions}",
+        "-DLLVM_ENABLE_ASSERTIONS=ON",
+        "-DLLVM_ABI_BREAKING_CHECKS=FORCE_OFF",
         "-DLLVM_ENABLE_ZLIB=OFF",
         "-DLLVM_ENABLE_ZSTD=OFF",
         "-DLLVM_ENABLE_LIBXML2=OFF",

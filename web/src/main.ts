@@ -284,13 +284,15 @@ function handleWorkerMessage(message: WorkerResponse): void {
   window.clearTimeout(runTimeout);
   busy = false;
   if (message.error) {
+    destroyWorker();
     renderFatal(message.error);
-    setStatus('interpreter crashed', 'error');
+    setStatus('internal error', 'error');
     return;
   }
   if (!message.result) {
+    destroyWorker();
     renderFatal('The interpreter returned an empty response.');
-    setStatus('error', 'error');
+    setStatus('internal error', 'error');
     return;
   }
   renderResult(message.result);
@@ -321,11 +323,16 @@ function renderFatal(message: string): void {
   editor.clearDiagnostics();
   const box = element('div', 'result result-error');
   box.append(
-    element('div', 'result-summary', 'Interpreter error'),
+    element('div', 'result-summary', 'Internal interpreter error'),
     element('p', 'fatal-message', message),
+    element(
+      'p',
+      'empty',
+      'The wasm worker was restarted; the next run will use a fresh instance.',
+    ),
   );
   outputElement.replaceChildren(box);
-  outputMeta.textContent = 'error';
+  outputMeta.textContent = 'internal error';
 }
 
 function renderResult(result: RunResult): void {

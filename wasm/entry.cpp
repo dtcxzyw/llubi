@@ -57,6 +57,20 @@ using namespace llvm;
 constexpr size_t OutputLimit = 1024 * 1024;
 constexpr size_t StderrLimit = 256 * 1024;
 
+std::string LastFatalError;
+bool FatalErrorHandlerInstalled = false;
+
+void installFatalErrorHandler() {
+  if (FatalErrorHandlerInstalled)
+    return;
+  install_fatal_error_handler(
+      [](void *, const char *Reason, bool) {
+        LastFatalError = Reason ? Reason : "unknown fatal error";
+      },
+      nullptr);
+  FatalErrorHandlerInstalled = true;
+}
+
 struct Options {
   std::string EntryFunction = "main";
   std::string FakeArgv0;
@@ -289,6 +303,24 @@ private:
   std::string Captured;
 };
 
+std::string readCapturedStderr() {
+  std::string Captured;
+  int Fd = open("/tmp/llubi-web-stderr", O_RDONLY);
+  if (Fd < 0)
+    return Captured;
+  char Buffer[4096];
+  ssize_t N;
+  while ((N = read(Fd, Buffer, sizeof(Buffer))) > 0) {
+    size_t ToCopy =
+        std::min(static_cast<size_t>(N), StderrLimit - Captured.size());
+    Captured.append(Buffer, ToCopy);
+    if (Captured.size() >= StderrLimit)
+      break;
+  }
+  close(Fd);
+  return Captured;
+}
+
 std::vector<llubi_web::StackFrame> parseStackFrames(StringRef Text) {
   std::vector<llubi_web::StackFrame> Frames;
   SmallVector<StringRef, 32> Lines;
@@ -395,6 +427,8 @@ std::string makeFailure(StringRef Phase, StringRef Message, int Line = 0,
 }
 
 std::string runLlubi(StringRef IR, StringRef OptionsText) {
+  LastFatalError.clear();
+  installFatalErrorHandler();
   auto Start = std::chrono::steady_clock::now();
   Options Opt;
   std::string OptionError;
@@ -685,6 +719,14 @@ EMSCRIPTEN_KEEPALIVE const char *llubi_run(const char *IR,
   Result = runLlubi(IR ? StringRef(IR) : StringRef(),
                     OptionsJSON ? StringRef(OptionsJSON) : StringRef("{}"));
   return Result.c_str();
+}
+
+EMSCRIPTEN_KEEPALIVE const char *llubi_last_error() {
+  static std::string Output;
+  Output = LastFatalError;
+  if (Output.empty())
+    Output = readCapturedStderr();
+  return Output.c_str();
 }
 
 EMSCRIPTEN_KEEPALIVE const char *llubi_info() {

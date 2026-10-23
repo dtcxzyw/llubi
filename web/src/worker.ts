@@ -17,6 +17,7 @@ const scope = self as unknown as DedicatedWorkerGlobalScope;
 
 let modulePromise: Promise<EmModule> | null = null;
 let runFunction: ((ir: string, options: string) => string) | null = null;
+let lastErrorFunction: (() => string) | null = null;
 
 async function getRunFunction(): Promise<(ir: string, options: string) => string> {
   if (runFunction) return runFunction;
@@ -38,6 +39,7 @@ async function getRunFunction(): Promise<(ir: string, options: string) => string
   }
   const module = await modulePromise;
   runFunction = module.cwrap('llubi_run', 'string', ['string', 'string']);
+  lastErrorFunction = module.cwrap('llubi_last_error', 'string', []);
   return runFunction;
 }
 
@@ -50,10 +52,14 @@ scope.onmessage = async (event: MessageEvent<WorkerRequest>) => {
     const response: WorkerResponse = { id, result };
     scope.postMessage(response);
   } catch (error) {
-    const response: WorkerResponse = {
-      id,
-      error: error instanceof Error ? error.message : String(error),
-    };
+    let message = error instanceof Error ? error.message : String(error);
+    try {
+      const fatal = lastErrorFunction?.();
+      if (fatal) message += `\nLLVM fatal error: ${fatal}`;
+    } catch {
+      // The wasm runtime may be unusable after a trap; keep the abort message.
+    }
+    const response: WorkerResponse = { id, error: message };
     scope.postMessage(response);
   }
 };
