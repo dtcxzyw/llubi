@@ -62,8 +62,8 @@ used automatically when available.
 - Execution happens in a Web Worker; a new edit supersedes an in-flight run,
   and long runs are killed after 10 seconds.
 - Verbose trace rows jump to their instruction, call site, function, or label in
-  the editor; clicking a source line number jumps back to the matching trace
-  row.
+  the editor; clicking a source line or line number jumps back to the matching
+  trace row.
 - The wasm build enables LLVM assertions while forcing ABI-breaking checks off.
   A crash is reported as an internal interpreter error with the assertion or
   LLVM fatal message, and the worker is recreated for the next run.

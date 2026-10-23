@@ -236,4 +236,9 @@ done:
   await expect(page.locator('.trace-row[data-target-line="4"]')).toHaveClass(
     /is-active/,
   );
+
+  await page.locator('.cm-line', { hasText: 'ret i32 0' }).click();
+  await expect(page.locator('.trace-row[data-line="5"]')).toHaveClass(
+    /is-active/,
+  );
 });
