@@ -327,10 +327,16 @@ button {
 @keyframes report-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(247, 118, 142, 0);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--error) 0%, transparent);
   }
   50% {
-    box-shadow: 0 0 0 4px rgba(247, 118, 142, 0.35);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--error) 35%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .report-button.is-crash {
+    animation: none;
   }
 }
 
