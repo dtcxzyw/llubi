@@ -170,6 +170,8 @@ let lastRunResult: RunResult | null = null;
 let lastRunCrash: string | null = null;
 let currentBuildInfo: BuildInfo | null = null;
 let testExamples: ExampleEntry[] = [];
+let examplesLoaded = false;
+let examplesLoading = false;
 const copyFeedbackTimers = new WeakMap<HTMLButtonElement, number>();
 
 const BUILTIN_EXAMPLES: ExampleEntry[] = [
@@ -190,7 +192,6 @@ void start();
 async function start(): Promise<void> {
   setupTheme();
   void loadBuildInfo();
-  void loadExamples();
   const catalog = await loadCompletionCatalog();
   highlightLlvm = createLlvmHighlighter(catalog);
   editor = createEditor(
@@ -641,6 +642,7 @@ function toggleExamplesPanel(): void {
 
 function openExamplesPanel(): void {
   examplesPanel.classList.add('is-open');
+  void loadExamples();
   examplesPanel.setAttribute('aria-hidden', 'false');
   examplesPanel.removeAttribute('inert');
   examplesToggle.setAttribute('aria-expanded', 'true');
@@ -686,6 +688,8 @@ function createExampleItem(example: ExampleEntry): HTMLLIElement {
 }
 
 async function loadExamples(): Promise<void> {
+  if (examplesLoaded || examplesLoading) return;
+  examplesLoading = true;
   try {
     const response = await fetch(new URL('examples.json', document.baseURI), {
       cache: 'no-cache',
@@ -693,10 +697,13 @@ async function loadExamples(): Promise<void> {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const catalog = (await response.json()) as ExampleCatalog;
     testExamples = catalog.examples ?? [];
+    examplesLoaded = true;
     examplesTestsTitle.textContent = `llubi tests (${testExamples.length})`;
     if (examplesPanel.classList.contains('is-open')) renderExamples();
   } catch (error) {
     console.warn('example catalog is unavailable', error);
+  } finally {
+    examplesLoading = false;
   }
 }
 

@@ -55,5 +55,5 @@ target_link_options(llubi_web PRIVATE
   -sABORTING_MALLOC=0
   -sASSERTIONS=1
   -sEXPORTED_FUNCTIONS=_malloc,_free,_llubi_run,_llubi_info,_llubi_last_error
-  -sEXPORTED_RUNTIME_METHODS=cwrap,ccall
+  -sEXPORTED_RUNTIME_METHODS=cwrap
   )

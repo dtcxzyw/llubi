@@ -6,7 +6,7 @@ export default defineConfig({
   base,
   build: {
     target: 'es2022',
-    sourcemap: true,
+    sourcemap: process.env.VITE_SOURCEMAP === '1',
   },
   worker: {
     format: 'es',

@@ -486,6 +486,29 @@ test('restores the copy label after feedback', async ({ page, context }) => {
   await expect(copyButton).toHaveText('copy', { timeout: 5000 });
 });
 
+test('defers the generated example catalog until the drawer opens', async ({
+  page,
+}) => {
+  const requests: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().endsWith('/examples.json')) requests.push(request.url());
+  });
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  expect(requests).toHaveLength(0);
+
+  await page.locator('#examples-toggle').click();
+  await expect
+    .poll(async () => requests.length, { timeout: 10_000 })
+    .toBeGreaterThan(0);
+  await expect
+    .poll(
+      async () => page.locator('#examples-tests .example-item').count(),
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(100);
+});
+
 test('opens the examples panel with built-ins first and generated tests', async ({
   page,
 }) => {
