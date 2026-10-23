@@ -148,3 +148,25 @@ test('offers generated metadata completions', async ({ page }) => {
   await expect(popup).toBeVisible();
   await expect(popup).toContainText('!dbg');
 });
+
+test('suggests defined functions for the entry point', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Manual' }).click();
+  await page.getByRole('button', { name: 'Parameters' }).click();
+  const options = page.locator('#entry-functions option');
+  await expect(options).toHaveCount(1);
+  await expect(options.first()).toHaveAttribute('value', 'main');
+
+  const editor = page.locator('.cm-content');
+  await editor.click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.insertText('\ndefine i32 @foo() {\n  ret i32 0\n}\n');
+  await expect(options).toHaveCount(2);
+  await expect(page.locator('#entry-functions option[value="foo"]')).toHaveCount(1);
+
+  await page.locator('#opt-entry').fill('foo');
+  await page.getByRole('button', { name: 'Run' }).click();
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await expect(page.locator('#output')).toContainText('Entering function: foo');
+});

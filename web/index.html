@@ -77,7 +77,15 @@
         <div class="params-grid">
           <label>
             <span>Entry function</span>
-            <input id="opt-entry" type="text" spellcheck="false" />
+            <input
+              id="opt-entry"
+              type="text"
+              list="entry-functions"
+              spellcheck="false"
+              autocomplete="off"
+              placeholder="main"
+              title="Choose a defined function or type a name"
+            />
           </label>
           <label>
             <span>argv0</span>
@@ -148,6 +156,7 @@
             Disable verifier
           </label>
         </div>
+        <datalist id="entry-functions"></datalist>
         <div class="params-actions">
           <button id="params-reset" class="secondary" type="button">Reset defaults</button>
         </div>

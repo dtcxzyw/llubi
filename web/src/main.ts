@@ -25,6 +25,7 @@ const statusElement = byId<HTMLElement>('status');
 const paramsToggle = byId<HTMLButtonElement>('params-toggle');
 const paramsPanel = byId<HTMLElement>('params');
 const paramsReset = byId<HTMLButtonElement>('params-reset');
+const entryFunctionList = byId<HTMLDataListElement>('entry-functions');
 const sampleHello = byId<HTMLButtonElement>('sample-hello');
 const sampleUb = byId<HTMLButtonElement>('sample-ub');
 const outputElement = byId<HTMLElement>('output');
@@ -76,6 +77,7 @@ async function start(): Promise<void> {
   applyOptionsToForm(options);
   applyRunMode(autoRun);
   updateEditorMeta(initialIR);
+  updateEntryFunctions(initialIR);
   renderEmpty();
   if (autoRun) scheduleRun(0);
   else runNow();
@@ -205,6 +207,7 @@ function onOptionsChanged(): void {
 function onEditorChange(value: string): void {
   localStorage.setItem(STORAGE_IR, value);
   updateEditorMeta(value);
+  updateEntryFunctions(value);
   queueMicrotask(() => editor.clearDiagnostics());
   if (autoRun) scheduleRun();
   else setStatus('modified', 'dirty');
@@ -213,6 +216,25 @@ function onEditorChange(value: string): void {
 function updateEditorMeta(value: string): void {
   const lines = value.length === 0 ? 1 : value.split('\n').length;
   editorMeta.textContent = `${lines} lines`;
+}
+
+function extractDefinedFunctions(ir: string): string[] {
+  const names = new Set<string>();
+  const re =
+    /^\s*define\b[^@\n]*?@(?:"((?:[^"\\]|\\.)*)"|([-a-zA-Z$._0-9]+))\s*\(/gm;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(ir))) names.add(match[1] ?? match[2]);
+  return [...names].sort();
+}
+
+function updateEntryFunctions(ir: string): void {
+  const names = extractDefinedFunctions(ir);
+  const options = names.map((name) => {
+    const option = document.createElement('option');
+    option.value = name;
+    return option;
+  });
+  entryFunctionList.replaceChildren(...options);
 }
 
 function loadSample(value: string): void {
