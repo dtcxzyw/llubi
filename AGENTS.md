@@ -84,15 +84,20 @@ used automatically when available.
   the editor; clicking a source line or line number jumps back to the matching
   trace row.
 - The Examples drawer lists two built-in samples first and then every `.ll` test
-  from `llvm/test/tools/llubi`, with check lines stripped and the first RUN line
-  parsed into playground options when possible.
+  from `llvm/test/tools/llubi`, with check lines stripped. RUN lines are kept
+  for context and the first RUN line is parsed into playground options when
+  possible.
+- Numeric options use explicit minus/plus controls with saturating scaling:
+  max steps changes by 10x, other numeric options by 2x, and vscale moves
+  between adjacent powers of two.
 - The output pane separates program output from interpreter diagnostics and
   trace with a draggable horizontal divider that starts at 1/6 and 5/6.
 - The toolbar shows the equivalent `; RUN:` line for the last run and copies it
   when clicked. The output header can copy generated FileCheck lines or generate
   a complete lit test with the update header, RUN line, cleaned IR, and checks;
   stdout and stderr are combined in execution order like
-  `update_llubi_test_checks.py`, and failing runs get a `not ` prefix.
+  `update_llubi_test_checks.py`, and failing runs get a `not ` prefix. The same
+  header can open a prefilled LLVM issue with the reproducer and output.
 - The wasm build enables LLVM assertions while forcing ABI-breaking checks off.
   A crash is reported as an internal interpreter error with the assertion or
   LLVM fatal message, and the worker is recreated for the next run.
