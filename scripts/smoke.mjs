@@ -78,8 +78,30 @@ assert.match(runtime.message, /freeing a pointer/);
 assert.match(ubResult.stderr, /Stacktrace:/);
 
 const verboseResult = JSON.parse(run(hello, JSON.stringify({ verbose: true })));
-assert.match(verboseResult.trace, /Entering function: main/);
-assert.match(verboseResult.trace, /Exiting function: main/);
+assert.ok(
+  verboseResult.trace.some((entry) => /Entering function: main/.test(entry.text)),
+);
+assert.ok(
+  verboseResult.trace.some((entry) => /Exiting function: main/.test(entry.text)),
+);
+assert.ok(verboseResult.trace.some((entry) => entry.line > 0));
+
+const branch = `define i32 @main() {
+entry:
+  br label %done
+done:
+  ret i32 0
+}
+`;
+const branchResult = JSON.parse(run(branch, JSON.stringify({})));
+const branchEntry = branchResult.trace.find((entry) => entry.kind === 'branch');
+assert.ok(branchEntry, 'missing branch trace entry');
+assert.equal(branchEntry.targetLine, 4);
+assert.equal(branchEntry.targetName, 'done');
+const functionEntry = branchResult.trace.find(
+  (entry) => entry.kind === 'function' && entry.text.includes('Entering'),
+);
+assert.ok(functionEntry && functionEntry.line === 1);
 
 const limitResult = JSON.parse(
   run(hello, JSON.stringify({ maxSteps: 1 })),

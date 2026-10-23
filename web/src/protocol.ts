@@ -76,6 +76,14 @@ export interface Diagnostic {
   frames?: StackFrame[];
 }
 
+export interface TraceEntry {
+  line: number;
+  kind?: string;
+  text: string;
+  targetLine?: number;
+  targetName?: string;
+}
+
 export interface RunResult {
   ok: boolean;
   exit: {
@@ -84,7 +92,7 @@ export interface RunResult {
   };
   stdout: string;
   stderr: string;
-  trace: string;
+  trace: TraceEntry[];
   diagnostics: Diagnostic[];
   truncated: boolean;
   durationMs: number;

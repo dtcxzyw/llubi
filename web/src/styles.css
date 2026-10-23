@@ -365,6 +365,95 @@ button:disabled {
   grid-column: span 2;
 }
 
+.entry-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.entry-field > label {
+  color: inherit;
+}
+
+.combo {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+.combo input {
+  flex: 1;
+  min-width: 0;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-right: 0 !important;
+}
+
+.combo-toggle {
+  flex: 0 0 28px;
+  border: 1px solid var(--border);
+  border-radius: 0 5px 5px 0;
+  background: var(--panel-2);
+  color: var(--muted);
+  line-height: 1;
+}
+
+.combo-toggle:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.combo-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--panel-3);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  max-height: 200px;
+  overflow: auto;
+}
+
+.combo-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.combo-option:hover,
+.combo-option[aria-selected='true'] {
+  background: var(--accent);
+  color: #08101d;
+}
+
+.combo-option.is-current::after {
+  content: 'current';
+  font-family: var(--font-ui);
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+.combo-empty {
+  padding: 6px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .params-grid input[type='text'],
 .params-grid input[type='number'],
 .params-grid select,
@@ -471,6 +560,10 @@ button:disabled {
 .editor-host .cm-activeLine,
 .editor-host .cm-activeLineGutter {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.editor-host .cm-lineNumbers .cm-gutterElement:hover {
+  color: var(--accent);
 }
 
 .editor-host .cm-error-line {
@@ -636,6 +729,68 @@ button:disabled {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
+}
+
+.trace {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  overflow: auto;
+  max-height: 24em;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.trace-row {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.trace-row.is-active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.trace-line {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 1px 10px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.trace-line:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.trace-line:disabled {
+  color: var(--text);
+  cursor: default;
+}
+
+.trace-target {
+  flex: 0 0 auto;
+  margin-right: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 7px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: 10px;
+}
+
+.trace-target:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .output-text {

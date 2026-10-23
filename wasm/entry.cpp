@@ -699,7 +699,19 @@ std::string runLlubi(StringRef IR, StringRef OptionsText) {
   Root["exit"] = std::move(Exit);
   Root["stdout"] = Handler.stdoutText();
   Root["stderr"] = CapturedStderr;
-  Root["trace"] = Handler.traceText();
+  json::Array Trace;
+  for (const auto &Entry : Handler.traceEntries()) {
+    json::Object Item;
+    Item["line"] = Entry.Line;
+    Item["kind"] = Entry.Kind;
+    Item["text"] = Entry.Text;
+    if (Entry.TargetLine > 0) {
+      Item["targetLine"] = Entry.TargetLine;
+      Item["targetName"] = Entry.TargetName;
+    }
+    Trace.push_back(std::move(Item));
+  }
+  Root["trace"] = std::move(Trace);
   Root["diagnostics"] = std::move(Diagnostics);
   Root["truncated"] = Truncated;
   Root["durationMs"] = static_cast<int64_t>(

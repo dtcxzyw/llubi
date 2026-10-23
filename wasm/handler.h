@@ -26,6 +26,14 @@ struct StackFrame {
   int Column = 0;
 };
 
+struct TraceEntry {
+  int Line = 0;
+  int TargetLine = 0;
+  std::string TargetName;
+  std::string Kind;
+  std::string Text;
+};
+
 struct RuntimeIssue {
   std::string Kind;
   std::string Message;
@@ -53,26 +61,29 @@ public:
   bool onPrint(llvm::StringRef Msg) override;
 
   const std::string &stdoutText() const { return Stdout; }
-  const std::string &traceText() const { return Trace; }
+  const std::vector<TraceEntry> &traceEntries() const { return TraceEntries; }
   bool stdoutTruncated() const { return StdoutTruncated; }
   bool traceTruncated() const { return TraceTruncated; }
   const std::vector<RuntimeIssue> &issues() const { return Issues; }
 
 private:
   void appendStdout(llvm::StringRef Msg);
+  void appendTrace(int Line, llvm::StringRef Text, llvm::StringRef Kind,
+                   int TargetLine = 0, llvm::StringRef TargetName = {});
   void addIssue(llvm::StringRef Kind, llvm::StringRef Msg);
   StackFrame locate(llvm::Instruction &I) const;
+  int functionLine(llvm::Function &F) const;
+  int blockLine(llvm::BasicBlock &BB) const;
   bool traceFull() const;
 
   llvm::ubi::Context &Ctx;
   bool Verbose;
   size_t Limit;
   std::string Stdout;
-  std::string Trace;
-  llvm::raw_string_ostream TraceOS;
-  llvm::ubi::AnyValuePrinter Printer;
+  size_t TraceSize = 0;
   bool StdoutTruncated = false;
   bool TraceTruncated = false;
+  std::vector<TraceEntry> TraceEntries;
   std::vector<RuntimeIssue> Issues;
 };
 

@@ -75,18 +75,33 @@
           </a>
         </div>
         <div class="params-grid">
-          <label>
-            <span>Entry function</span>
-            <input
-              id="opt-entry"
-              type="text"
-              list="entry-functions"
-              spellcheck="false"
-              autocomplete="off"
-              placeholder="main"
-              title="Choose a defined function or type a name"
-            />
-          </label>
+          <div class="entry-field">
+            <label for="opt-entry">Entry function</label>
+            <div id="entry-combo" class="combo">
+              <input
+                id="opt-entry"
+                type="text"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="entry-menu"
+                spellcheck="false"
+                autocomplete="off"
+                placeholder="main"
+                title="Choose a defined function or type a name"
+              />
+              <button
+                id="entry-toggle"
+                class="combo-toggle"
+                type="button"
+                tabindex="-1"
+                aria-label="Show defined functions"
+              >
+                <span aria-hidden="true">▾</span>
+              </button>
+              <ul id="entry-menu" class="combo-menu" role="listbox" hidden></ul>
+            </div>
+          </div>
           <label>
             <span>argv0</span>
             <input id="opt-argv0" type="text" spellcheck="false" placeholder="llubi" />
@@ -156,7 +171,6 @@
             Disable verifier
           </label>
         </div>
-        <datalist id="entry-functions"></datalist>
         <div class="params-actions">
           <button id="params-reset" class="secondary" type="button">Reset defaults</button>
         </div>

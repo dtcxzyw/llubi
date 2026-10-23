@@ -303,6 +303,7 @@ export function createEditor(
   initialValue: string,
   onChange: (value: string) => void,
   catalog: CompletionCatalog,
+  onLineNumberClick?: (line: number) => boolean,
 ): EditorController {
   const view = new EditorView({
     parent,
@@ -347,6 +348,22 @@ export function createEditor(
       ],
     }),
   });
+
+  if (onLineNumberClick) {
+    view.dom
+      .querySelector('.cm-lineNumbers')
+      ?.setAttribute('title', 'Click a line number to jump to its verbose trace');
+    view.dom.addEventListener('mousedown', (event) => {
+      const target = event.target as HTMLElement | null;
+      const gutterElement = target?.closest<HTMLElement>(
+        '.cm-lineNumbers .cm-gutterElement',
+      );
+      if (!gutterElement) return;
+      const line = Number(gutterElement.textContent);
+      if (!Number.isInteger(line) || line <= 0) return;
+      if (onLineNumberClick(line)) event.preventDefault();
+    });
+  }
 
   const lineForDiagnostic = (diagnostic: Diagnostic): number => {
     if (diagnostic.line && diagnostic.line > 0) return diagnostic.line;

@@ -7,6 +7,7 @@ import type {
   Diagnostic,
   RunOptions,
   RunResult,
+  TraceEntry,
   WorkerRequest,
   WorkerResponse,
 } from './protocol';
@@ -25,7 +26,10 @@ const statusElement = byId<HTMLElement>('status');
 const paramsToggle = byId<HTMLButtonElement>('params-toggle');
 const paramsPanel = byId<HTMLElement>('params');
 const paramsReset = byId<HTMLButtonElement>('params-reset');
-const entryFunctionList = byId<HTMLDataListElement>('entry-functions');
+const entryInput = byId<HTMLInputElement>('opt-entry');
+const entryCombo = byId<HTMLElement>('entry-combo');
+const entryToggle = byId<HTMLButtonElement>('entry-toggle');
+const entryMenu = byId<HTMLUListElement>('entry-menu');
 const sampleHello = byId<HTMLButtonElement>('sample-hello');
 const sampleUb = byId<HTMLButtonElement>('sample-ub');
 const outputElement = byId<HTMLElement>('output');
@@ -40,7 +44,7 @@ if (!leftPane) throw new Error('editor pane is missing');
 const editorPane = leftPane;
 
 const optionInputs = {
-  entryFunction: byId<HTMLInputElement>('opt-entry'),
+  entryFunction: entryInput,
   fakeArgv0: byId<HTMLInputElement>('opt-argv0'),
   argv: byId<HTMLTextAreaElement>('opt-argv'),
   maxMemMiB: byId<HTMLInputElement>('opt-max-mem'),
@@ -62,6 +66,10 @@ let activeId = 0;
 let busy = false;
 let runTimeout: number | undefined;
 let worker: Worker | null = null;
+let definedFunctions: string[] = [];
+let entryMatches: string[] = [];
+let entryActiveIndex = -1;
+let entryMenuOpen = false;
 
 const initialIR = localStorage.getItem(STORAGE_IR) ?? HELLO_IR;
 let editor: EditorController;
@@ -71,7 +79,13 @@ void start();
 async function start(): Promise<void> {
   void loadBuildInfo();
   const catalog = await loadCompletionCatalog();
-  editor = createEditor(byId('editor'), initialIR, onEditorChange, catalog);
+  editor = createEditor(
+    byId('editor'),
+    initialIR,
+    onEditorChange,
+    catalog,
+    revealTraceForLine,
+  );
 
   setupSplitter(splitElement, splitter, editorPane);
   applyOptionsToForm(options);
@@ -103,6 +117,25 @@ async function start(): Promise<void> {
     input.addEventListener('input', onOptionsChanged);
     input.addEventListener('change', onOptionsChanged);
   }
+
+  entryInput.addEventListener('focus', () => openEntryMenu(''));
+  entryInput.addEventListener('click', () => openEntryMenu(''));
+  entryInput.addEventListener('input', () => {
+    if (entryMenuOpen) renderEntryMenu(entryInput.value);
+    else openEntryMenu(entryInput.value);
+  });
+  entryInput.addEventListener('keydown', onEntryKeydown);
+  entryToggle.addEventListener('click', () => {
+    if (entryMenuOpen) {
+      closeEntryMenu();
+    } else {
+      openEntryMenu('');
+      entryInput.focus();
+    }
+  });
+  document.addEventListener('pointerdown', (event) => {
+    if (!entryCombo.contains(event.target as Node)) closeEntryMenu();
+  });
 
   document.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
@@ -228,13 +261,91 @@ function extractDefinedFunctions(ir: string): string[] {
 }
 
 function updateEntryFunctions(ir: string): void {
-  const names = extractDefinedFunctions(ir);
-  const options = names.map((name) => {
-    const option = document.createElement('option');
-    option.value = name;
-    return option;
+  definedFunctions = extractDefinedFunctions(ir);
+  if (entryMenuOpen) renderEntryMenu(entryInput.value);
+}
+
+function openEntryMenu(filter: string): void {
+  entryMenuOpen = true;
+  entryInput.setAttribute('aria-expanded', 'true');
+  entryMenu.hidden = false;
+  renderEntryMenu(filter);
+}
+
+function closeEntryMenu(): void {
+  if (!entryMenuOpen) return;
+  entryMenuOpen = false;
+  entryInput.setAttribute('aria-expanded', 'false');
+  entryMenu.hidden = true;
+  entryActiveIndex = -1;
+}
+
+function renderEntryMenu(filter: string): void {
+  const query = filter.trim().toLowerCase();
+  entryMatches = definedFunctions.filter(
+    (name) => !query || name.toLowerCase().includes(query),
+  );
+  const current = entryInput.value;
+  entryActiveIndex = entryMatches.length
+    ? Math.max(0, entryMatches.findIndex((name) => name === current))
+    : -1;
+
+  if (entryMatches.length === 0) {
+    entryMenu.replaceChildren(element('li', 'combo-empty', 'No defined functions'));
+    return;
+  }
+
+  const items = entryMatches.map((name, index) => {
+    const item = element('li', 'combo-option', name);
+    item.setAttribute('role', 'option');
+    item.setAttribute('aria-selected', String(index === entryActiveIndex));
+    if (name === current) item.classList.add('is-current');
+    item.addEventListener('mousedown', (event) => event.preventDefault());
+    item.addEventListener('click', () => chooseEntryFunction(name));
+    return item;
   });
-  entryFunctionList.replaceChildren(...options);
+  entryMenu.replaceChildren(...items);
+}
+
+function setEntryActive(index: number): void {
+  if (entryMatches.length === 0) return;
+  entryActiveIndex = (index + entryMatches.length) % entryMatches.length;
+  [...entryMenu.children].forEach((item, itemIndex) => {
+    if (item.getAttribute('role') !== 'option') return;
+    item.setAttribute('aria-selected', String(itemIndex === entryActiveIndex));
+  });
+  const active = entryMenu.children[entryActiveIndex] as HTMLElement | undefined;
+  active?.scrollIntoView({ block: 'nearest' });
+}
+
+function onEntryKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
+    closeEntryMenu();
+    return;
+  }
+  if (event.key === 'Tab') {
+    closeEntryMenu();
+    return;
+  }
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    if (!entryMenuOpen) openEntryMenu('');
+    event.preventDefault();
+    if (entryMatches.length === 0) return;
+    const delta = event.key === 'ArrowDown' ? 1 : -1;
+    setEntryActive(entryActiveIndex + delta);
+    return;
+  }
+  if (event.key === 'Enter' && entryMenuOpen) {
+    if (entryMatches.length === 0) return;
+    event.preventDefault();
+    chooseEntryFunction(entryMatches[Math.max(0, entryActiveIndex)]);
+  }
+}
+
+function chooseEntryFunction(name: string): void {
+  entryInput.value = name;
+  closeEntryMenu();
+  onOptionsChanged();
 }
 
 function loadSample(value: string): void {
@@ -405,11 +516,11 @@ function renderResult(result: RunResult): void {
     root.append(block);
   }
 
-  if (result.trace) {
+  if (result.trace.length > 0) {
     const trace = element('section', 'block');
     trace.append(
       element('h2', 'block-title', 'Verbose trace'),
-      element('pre', 'output-text', result.trace),
+      renderTrace(result.trace),
     );
     root.append(trace);
   }
@@ -421,11 +532,77 @@ function renderResult(result: RunResult): void {
     );
     root.append(stderr);
   }
-  if (!result.stdout && !result.trace && result.diagnostics.length === 0) {
+  if (
+    !result.stdout &&
+    result.trace.length === 0 &&
+    result.diagnostics.length === 0
+  ) {
     root.append(element('p', 'empty', 'Program produced no output.'));
   }
 
   outputElement.replaceChildren(root);
+}
+
+function renderTrace(entries: TraceEntry[]): HTMLElement {
+  const trace = element('div', 'trace');
+  for (const entry of entries) {
+    const row = element('div', `trace-row trace-${entry.kind ?? 'instruction'}`);
+    row.dataset.line = String(entry.line);
+    if (entry.targetLine) row.dataset.targetLine = String(entry.targetLine);
+
+    const text = element('button', 'trace-line', entry.text || ' ');
+    text.type = 'button';
+    if (entry.line > 0) {
+      text.title = `Jump to line ${entry.line}`;
+      text.addEventListener('click', () => {
+        activateTraceRow(row);
+        editor.revealLine(entry.line);
+      });
+    } else {
+      text.disabled = true;
+    }
+    row.append(text);
+
+    if (entry.targetLine && entry.targetLine > 0) {
+      const target = element(
+        'button',
+        'trace-target',
+        entry.kind === 'branch' ? 'label' : 'function',
+      ) as HTMLButtonElement;
+      target.type = 'button';
+      target.title = `Jump to ${
+        entry.kind === 'branch' ? 'label' : 'function'
+      } ${entry.targetName ?? ''} on line ${entry.targetLine}`;
+      target.addEventListener('click', () => {
+        activateTraceRow(row);
+        editor.revealLine(entry.targetLine ?? 1);
+      });
+      row.append(target);
+    }
+    trace.append(row);
+  }
+  return trace;
+}
+
+function activateTraceRow(row: HTMLElement): void {
+  for (const active of outputElement.querySelectorAll('.trace-row.is-active'))
+    active.classList.remove('is-active');
+  row.classList.add('is-active');
+}
+
+function revealTraceForLine(line: number): boolean {
+  const rows = outputElement.querySelectorAll<HTMLElement>('.trace-row');
+  for (const row of rows) {
+    if (
+      Number(row.dataset.line) === line ||
+      Number(row.dataset.targetLine) === line
+    ) {
+      activateTraceRow(row);
+      row.scrollIntoView({ block: 'nearest' });
+      return true;
+    }
+  }
+  return false;
 }
 
 function renderDiagnostic(diagnostic: Diagnostic): HTMLElement {

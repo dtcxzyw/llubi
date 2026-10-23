@@ -154,19 +154,86 @@ test('suggests defined functions for the entry point', async ({ page }) => {
   await expect(page.locator('#status')).toHaveClass(/status-ok/);
   await page.getByRole('button', { name: 'Manual' }).click();
   await page.getByRole('button', { name: 'Parameters' }).click();
-  const options = page.locator('#entry-functions option');
+  await page.locator('#opt-entry').click();
+  const options = page.locator('#entry-menu [role="option"]');
   await expect(options).toHaveCount(1);
-  await expect(options.first()).toHaveAttribute('value', 'main');
+  await expect(options.first()).toHaveText('main');
 
   const editor = page.locator('.cm-content');
   await editor.click();
   await page.keyboard.press('Control+End');
   await page.keyboard.insertText('\ndefine i32 @foo() {\n  ret i32 0\n}\n');
+  await page.locator('#opt-entry').click();
   await expect(options).toHaveCount(2);
-  await expect(page.locator('#entry-functions option[value="foo"]')).toHaveCount(1);
+  await expect(options.filter({ hasText: 'foo' })).toHaveCount(1);
 
   await page.locator('#opt-entry').fill('foo');
   await page.getByRole('button', { name: 'Run' }).click();
   await expect(page.locator('#status')).toHaveClass(/status-ok/);
   await expect(page.locator('#output')).toContainText('Entering function: foo');
+});
+
+test('aligns the entry function picker with its input', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Parameters' }).click();
+  await page.locator('#opt-entry').click();
+  await expect(page.locator('#entry-menu')).toBeVisible();
+  const metrics = await page.evaluate(() => {
+    const combo = document.querySelector('#entry-combo')!.getBoundingClientRect();
+    const menu = document.querySelector('#entry-menu')!.getBoundingClientRect();
+    return {
+      comboLeft: combo.left,
+      comboWidth: combo.width,
+      comboBottom: combo.bottom,
+      menuLeft: menu.left,
+      menuWidth: menu.width,
+      menuTop: menu.top,
+    };
+  });
+  expect(Math.abs(metrics.menuLeft - metrics.comboLeft)).toBeLessThanOrEqual(1);
+  expect(Math.abs(metrics.menuWidth - metrics.comboWidth)).toBeLessThanOrEqual(1);
+  expect(metrics.menuTop).toBeGreaterThanOrEqual(metrics.comboBottom);
+});
+
+test('links trace rows and editor lines in both directions', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Manual' }).click();
+
+  const source = `define i32 @main() {
+entry:
+  br label %done
+done:
+  ret i32 0
+}
+`;
+  const editor = page.locator('.cm-content');
+  await editor.click();
+  await page.keyboard.press('Control+A');
+  await page.keyboard.insertText(source);
+  await page.getByRole('button', { name: 'Run' }).click();
+  await expect(page.locator('.trace-row')).toHaveCount(4);
+
+  await page.locator('.trace-line', { hasText: 'Entering function: main' }).click();
+  await expect(page.locator('.cm-activeLine')).toContainText('define i32 @main');
+
+  await page.locator('.trace-target', { hasText: 'label' }).click();
+  await expect(page.locator('.cm-activeLine')).toContainText('done:');
+
+  await page
+    .locator('.cm-lineNumbers .cm-gutterElement')
+    .filter({ hasText: /^1$/ })
+    .click();
+  await expect(page.locator('.trace-row[data-line="1"]').first()).toHaveClass(
+    /is-active/,
+  );
+
+  await page
+    .locator('.cm-lineNumbers .cm-gutterElement')
+    .filter({ hasText: /^4$/ })
+    .click();
+  await expect(page.locator('.trace-row[data-target-line="4"]')).toHaveClass(
+    /is-active/,
+  );
 });

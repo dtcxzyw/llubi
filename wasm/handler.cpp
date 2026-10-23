@@ -15,8 +15,7 @@ namespace llubi_web {
 
 WebEventHandler::WebEventHandler(llvm::ubi::Context &Ctx, bool Verbose,
                                  size_t OutputLimit)
-    : Ctx(Ctx), Verbose(Verbose), Limit(OutputLimit), TraceOS(Trace),
-      Printer(Ctx, TraceOS) {}
+    : Ctx(Ctx), Verbose(Verbose), Limit(OutputLimit) {}
 
 StackFrame WebEventHandler::locate(llvm::Instruction &I) const {
   StackFrame Frame;
@@ -49,6 +48,52 @@ void WebEventHandler::appendStdout(llvm::StringRef Msg) {
   Stdout.append(Msg.data(), Msg.size());
 }
 
+int WebEventHandler::functionLine(llvm::Function &F) const {
+  if (const auto *ParserContext = Ctx.getParserContext())
+    if (auto Loc = ParserContext->getFunctionLocation(&F))
+      return static_cast<int>(Loc->Start.Line) + 1;
+  return 0;
+}
+
+int WebEventHandler::blockLine(llvm::BasicBlock &BB) const {
+  if (const auto *ParserContext = Ctx.getParserContext())
+    if (auto Loc = ParserContext->getBlockLocation(&BB))
+      return static_cast<int>(Loc->Start.Line) + 1;
+  return 0;
+}
+
+void WebEventHandler::appendTrace(int Line, llvm::StringRef Text,
+                                  llvm::StringRef Kind, int TargetLine,
+                                  llvm::StringRef TargetName) {
+  size_t Start = 0;
+  bool FirstLine = true;
+  while (Start < Text.size() && !traceFull()) {
+    size_t End = Text.find('\n', Start);
+    if (End == llvm::StringRef::npos)
+      End = Text.size();
+    llvm::StringRef LineText = Text.slice(Start, End);
+    size_t Available = Limit - TraceSize;
+    std::string Stored = LineText.substr(0, Available).str();
+    TraceSize += Stored.size();
+    TraceEntry Entry;
+    Entry.Line = Line;
+    Entry.Kind = Kind.str();
+    if (FirstLine) {
+      Entry.TargetLine = TargetLine;
+      Entry.TargetName = TargetName.str();
+    }
+    Entry.Text = std::move(Stored);
+    TraceEntries.push_back(std::move(Entry));
+    FirstLine = false;
+    if (LineText.size() > Available || TraceSize >= Limit) {
+      TraceTruncated = true;
+      return;
+    }
+    ++TraceSize;
+    Start = End + 1;
+  }
+}
+
 void WebEventHandler::addIssue(llvm::StringRef Kind, llvm::StringRef Msg) {
   RuntimeIssue Issue;
   Issue.Kind = Kind.str();
@@ -56,22 +101,22 @@ void WebEventHandler::addIssue(llvm::StringRef Kind, llvm::StringRef Msg) {
   Issues.push_back(std::move(Issue));
 }
 
-bool WebEventHandler::traceFull() const { return Trace.size() >= Limit; }
+bool WebEventHandler::traceFull() const { return TraceSize >= Limit; }
 
 bool WebEventHandler::onInstructionExecuted(llvm::Instruction &I,
                                             const llvm::ubi::AnyValue &Result) {
   if (!Verbose || traceFull())
     return true;
 
+  std::string Text;
+  llvm::raw_string_ostream OS(Text);
+  llvm::ubi::AnyValuePrinter Printer(Ctx, OS);
   if (Result.isNone())
     Printer << I << '\n';
   else
     Printer << I << " => " << Result << '\n';
-  TraceOS.flush();
-  if (Trace.size() > Limit) {
-    Trace.resize(Limit);
-    TraceTruncated = true;
-  }
+  OS.flush();
+  appendTrace(locate(I).Line, Text, "instruction");
   return true;
 }
 
@@ -95,24 +140,28 @@ void WebEventHandler::onUnrecognizedInstruction(llvm::Instruction &I) {
 bool WebEventHandler::onBBJump(llvm::Instruction &I, llvm::BasicBlock &To) {
   if (!Verbose || traceFull())
     return true;
-  TraceOS << I << " jump to ";
-  To.printAsOperand(TraceOS, /*PrintType=*/false);
-  TraceOS << '\n';
-  TraceOS.flush();
-  if (Trace.size() > Limit) {
-    Trace.resize(Limit);
-    TraceTruncated = true;
-  }
+  std::string Text;
+  llvm::raw_string_ostream OS(Text);
+  OS << I << " jump to ";
+  To.printAsOperand(OS, /*PrintType=*/false);
+  OS << '\n';
+  OS.flush();
+  appendTrace(locate(I).Line, Text, "branch", blockLine(To), To.getName());
   return true;
 }
 
 bool WebEventHandler::onFunctionEntry(llvm::Function &F,
                                       llvm::ArrayRef<llvm::ubi::AnyValue> Args,
                                       llvm::CallBase *CallSite) {
-  (void)CallSite;
   if (!Verbose || traceFull())
     return true;
 
+  int DefinitionLine = functionLine(F);
+  int Line = CallSite ? locate(*CallSite).Line : DefinitionLine;
+  int TargetLine = DefinitionLine != Line ? DefinitionLine : 0;
+  std::string Text;
+  llvm::raw_string_ostream OS(Text);
+  llvm::ubi::AnyValuePrinter Printer(Ctx, OS);
   Printer << "Entering function: " << F.getName() << '\n';
   size_t ArgSize = F.arg_size();
   for (size_t Idx = 0; Idx < Args.size(); ++Idx) {
@@ -122,11 +171,9 @@ bool WebEventHandler::onFunctionEntry(llvm::Function &F,
       Printer << "  " << *F.getArg(static_cast<unsigned>(Idx)) << " = "
               << Args[Idx] << '\n';
   }
-  TraceOS.flush();
-  if (Trace.size() > Limit) {
-    Trace.resize(Limit);
-    TraceTruncated = true;
-  }
+  OS.flush();
+  appendTrace(Line, Text, "function", TargetLine,
+              TargetLine ? F.getName() : "");
   return true;
 }
 
@@ -135,12 +182,11 @@ bool WebEventHandler::onFunctionExit(llvm::Function &F,
   (void)RetVal;
   if (!Verbose || traceFull())
     return true;
-  Printer << "Exiting function: " << F.getName() << '\n';
-  TraceOS.flush();
-  if (Trace.size() > Limit) {
-    Trace.resize(Limit);
-    TraceTruncated = true;
-  }
+  std::string Text;
+  llvm::raw_string_ostream OS(Text);
+  OS << "Exiting function: " << F.getName() << '\n';
+  OS.flush();
+  appendTrace(functionLine(F), Text, "function");
   return true;
 }
 
