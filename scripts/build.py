@@ -110,11 +110,7 @@ def build_native_tblgen(
     tblgen = build_dir / "bin" / "llvm-tblgen"
     stamp = build_dir / "llvm-revision"
     revision = git_value(llvm_source, "rev-parse", "HEAD")
-    if (
-        tblgen.is_file()
-        and stamp.is_file()
-        and stamp.read_text().strip() == revision
-    ):
+    if tblgen.is_file() and stamp.is_file() and stamp.read_text().strip() == revision:
         return build_dir / "bin"
 
     log("building native llvm-tblgen")
@@ -226,7 +222,7 @@ def wasm_configure(
         "-DLLVM_PARALLEL_LINK_JOBS=1",
         f"-DLLVM_PARALLEL_COMPILE_JOBS={jobs}",
         "-DLLVM_DEFAULT_TARGET_TRIPLE=x86_64-unknown-linux-gnu",
-        f"-DLLVM_EXTERNAL_PROJECTS=llubi_web",
+        "-DLLVM_EXTERNAL_PROJECTS=llubi_web",
         f"-DLLVM_EXTERNAL_LLUBI_WEB_SOURCE_DIR={ROOT / 'wasm'}",
         f"-DLLVM_NATIVE_TOOL_DIR={native_tool_dir}",
         *ccache_args(use_ccache),
@@ -284,7 +280,7 @@ def emscripten_version() -> str:
 
 def write_build_info(llvm_source: Path, build_dir: Path) -> None:
     WEB_PUBLIC.mkdir(parents=True, exist_ok=True)
-    wasm = WEB_PUBLIC / "wasm" / "llubi.wasm"
+    wasm = build_dir / "dist" / "wasm" / "llubi.wasm"
     info = {
         "llvmVersion": read_llvm_version(build_dir),
         "llvmCommit": git_value(llvm_source, "rev-parse", "HEAD"),
@@ -331,7 +327,11 @@ def parse_args() -> argparse.Namespace:
         "--native-tool-dir",
         help="directory containing a matching native llvm-tblgen",
     )
-    parser.add_argument("--jobs", type=int, default=int(os.environ.get("LLUBI_JOBS", os.cpu_count() or 4)))
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=int(os.environ.get("LLUBI_JOBS", os.cpu_count() or 4)),
+    )
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--clean", action="store_true")
     parser.add_argument("--no-ccache", action="store_true")

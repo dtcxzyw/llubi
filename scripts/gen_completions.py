@@ -73,17 +73,13 @@ def parse_llparser(path: Path) -> tuple[list[str], list[str], list[str]]:
 def parse_attributes(path: Path) -> list[str]:
     text = read_text(path)
     text = text.split("#ifdef GET_ATTR_NAMES", 1)[1].split("#ifdef GET_ATTR_ENUM", 1)[0]
-    names = re.findall(
-        r"^\s*ATTRIBUTE_ENUM\([^,]+,\s*([A-Za-z0-9_]+)\)", text, re.M
-    )
+    names = re.findall(r"^\s*ATTRIBUTE_ENUM\([^,]+,\s*([A-Za-z0-9_]+)\)", text, re.M)
     return sorted(set(names))
 
 
 def parse_fixed_metadata(path: Path) -> list[str]:
     text = read_text(path)
-    names = re.findall(
-        r"LLVM_FIXED_MD_KIND\([^,]+,\s*\"([^\"]+)\"", text, re.S
-    )
+    names = re.findall(r"LLVM_FIXED_MD_KIND\([^,]+,\s*\"([^\"]+)\"", text, re.S)
     return sorted(set(names))
 
 
@@ -178,7 +174,9 @@ def main() -> None:
         llvm_lib / "lib" / "AsmParser" / "LLLexer.cpp"
     )
     attributes = parse_attributes(generated / "IR" / "Attributes.inc")
-    metadata = parse_fixed_metadata(llvm_lib / "include" / "llvm" / "IR" / "FixedMetadataKinds.def")
+    metadata = parse_fixed_metadata(
+        llvm_lib / "include" / "llvm" / "IR" / "FixedMetadataKinds.def"
+    )
     intrinsics = parse_intrinsics(
         generated / "IR" / "IntrinsicEnums.inc",
         generated / "IR" / "IntrinsicImpl.inc",

@@ -148,7 +148,7 @@ const THEME_CHOICES: ThemeChoice[] = [
 const systemDarkTheme = window.matchMedia('(prefers-color-scheme: dark)');
 
 let options = loadOptions();
-let autoRun = localStorage.getItem(STORAGE_AUTO_RUN) !== 'false';
+let autoRun = getStorage(STORAGE_AUTO_RUN) !== 'false';
 let themeChoice: ThemeChoice = 'system';
 let scheduled: number | undefined;
 let activeId = 0;
@@ -177,7 +177,7 @@ const BUILTIN_EXAMPLES: ExampleEntry[] = [
   { name: 'UB: free out of bounds', ir: UB_IR },
 ];
 
-const initialIR = localStorage.getItem(STORAGE_IR) ?? HELLO_IR;
+const initialIR = getStorage(STORAGE_IR) ?? HELLO_IR;
 let editor: EditorController;
 let highlightLlvm: (text: string) => DocumentFragment = (text) => {
   const fragment = document.createDocumentFragment();
@@ -227,6 +227,7 @@ async function start(): Promise<void> {
     saveOptions();
     inputVersion += 1;
     setCheckLines('');
+    updateRunCommand(options, null);
     scheduleRun(0);
   });
   examplesToggle.addEventListener('click', toggleExamplesPanel);
@@ -292,7 +293,7 @@ async function start(): Promise<void> {
 function setRunMode(auto: boolean): void {
   if (auto === autoRun) return;
   autoRun = auto;
-  localStorage.setItem(STORAGE_AUTO_RUN, String(autoRun));
+  setStorage(STORAGE_AUTO_RUN, String(autoRun));
   applyRunMode(autoRun);
   window.clearTimeout(scheduled);
   scheduled = undefined;
@@ -311,13 +312,25 @@ function byId<T extends HTMLElement = HTMLElement>(id: string): T {
   return element as T;
 }
 
-function loadThemeChoice(): ThemeChoice {
+function getStorage(key: string): string | null {
   try {
-    const stored = localStorage.getItem(STORAGE_THEME);
-    if (THEME_CHOICES.includes(stored as ThemeChoice)) {
-      return stored as ThemeChoice;
-    }
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function setStorage(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
   } catch {}
+}
+
+function loadThemeChoice(): ThemeChoice {
+  const stored = getStorage(STORAGE_THEME);
+  if (THEME_CHOICES.includes(stored as ThemeChoice)) {
+    return stored as ThemeChoice;
+  }
   return 'system';
 }
 
@@ -339,9 +352,7 @@ function setupTheme(): void {
     const choice = THEME_CHOICES.includes(themeSelect.value as ThemeChoice)
       ? (themeSelect.value as ThemeChoice)
       : 'system';
-    try {
-      localStorage.setItem(STORAGE_THEME, choice);
-    } catch {}
+    setStorage(STORAGE_THEME, choice);
     applyTheme(choice);
   });
   systemDarkTheme.addEventListener('change', () => {
@@ -350,9 +361,9 @@ function setupTheme(): void {
 }
 
 function loadOptions(): RunOptions {
+  const stored = getStorage(STORAGE_OPTIONS);
+  if (!stored) return { ...DEFAULT_OPTIONS };
   try {
-    const stored = localStorage.getItem(STORAGE_OPTIONS);
-    if (!stored) return { ...DEFAULT_OPTIONS };
     const parsed = JSON.parse(stored) as Partial<RunOptions>;
     return { ...DEFAULT_OPTIONS, ...parsed, verbose: true };
   } catch {
@@ -361,7 +372,7 @@ function loadOptions(): RunOptions {
 }
 
 function saveOptions(): void {
-  localStorage.setItem(STORAGE_OPTIONS, JSON.stringify(options));
+  setStorage(STORAGE_OPTIONS, JSON.stringify(options));
 }
 
 function setupNumericScaling(): void {
@@ -499,7 +510,7 @@ function onOptionsChanged(): void {
 }
 
 function onEditorChange(value: string): void {
-  localStorage.setItem(STORAGE_IR, value);
+  setStorage(STORAGE_IR, value);
   updateEditorMeta(value);
   updateEntryFunctions(value);
   inputVersion += 1;
@@ -619,6 +630,7 @@ function loadExample(example: ExampleEntry): void {
   editor.clearDiagnostics();
   inputVersion += 1;
   setCheckLines('');
+  updateRunCommand(options, null);
   scheduleRun(0);
 }
 

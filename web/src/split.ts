@@ -9,7 +9,7 @@ export function setupSplitter(
   splitter: HTMLElement,
   leftPane: HTMLElement,
 ): void {
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = readStorage(STORAGE_KEY);
   let percent = stored === null ? 50 : Number(stored);
   if (!Number.isFinite(percent)) percent = 50;
   percent = clamp(percent);
@@ -33,7 +33,7 @@ export function setupSplitter(
     dragging = false;
     splitter.releasePointerCapture?.(event.pointerId);
     document.body.classList.remove('resizing');
-    localStorage.setItem(STORAGE_KEY, String(percent));
+    writeStorage(STORAGE_KEY, percent);
   };
 
   splitter.addEventListener('pointerdown', (event) => {
@@ -49,14 +49,14 @@ export function setupSplitter(
 
   splitter.addEventListener('dblclick', () => {
     apply(50);
-    localStorage.setItem(STORAGE_KEY, '50');
+    writeStorage(STORAGE_KEY, 50);
   });
 
   splitter.addEventListener('keydown', (event) => {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
     event.preventDefault();
     apply(percent + (event.key === 'ArrowLeft' ? -2 : 2));
-    localStorage.setItem(STORAGE_KEY, String(percent));
+    writeStorage(STORAGE_KEY, percent);
   });
 }
 
@@ -68,7 +68,7 @@ export function setupOutputSplitter(
   const defaultPercent = 100 / 6;
   const minPercent = 15;
   const maxPercent = 85;
-  const stored = localStorage.getItem(OUTPUT_STORAGE_KEY);
+  const stored = readStorage(OUTPUT_STORAGE_KEY);
   let percent = stored === null ? defaultPercent : Number(stored);
   if (!Number.isFinite(percent)) percent = defaultPercent;
 
@@ -85,7 +85,7 @@ export function setupOutputSplitter(
     dragging = false;
     splitter.releasePointerCapture?.(event.pointerId);
     document.body.classList.remove('resizing-output');
-    localStorage.setItem(OUTPUT_STORAGE_KEY, String(percent));
+    writeStorage(OUTPUT_STORAGE_KEY, percent);
   };
 
   splitter.addEventListener('pointerdown', (event) => {
@@ -105,14 +105,28 @@ export function setupOutputSplitter(
   splitter.addEventListener('pointercancel', finishDrag);
   splitter.addEventListener('dblclick', () => {
     apply(defaultPercent);
-    localStorage.setItem(OUTPUT_STORAGE_KEY, String(defaultPercent));
+    writeStorage(OUTPUT_STORAGE_KEY, defaultPercent);
   });
   splitter.addEventListener('keydown', (event) => {
     if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
     event.preventDefault();
     apply(percent + (event.key === 'ArrowDown' ? 2 : -2));
-    localStorage.setItem(OUTPUT_STORAGE_KEY, String(percent));
+    writeStorage(OUTPUT_STORAGE_KEY, percent);
   });
+}
+
+function readStorage(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(key: string, value: number): void {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {}
 }
 
 function clamp(value: number): number {

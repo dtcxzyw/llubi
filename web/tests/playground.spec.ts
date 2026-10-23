@@ -792,3 +792,24 @@ test('applies and persists explicit and accessible themes', async ({
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });
+
+test('starts when local storage is unavailable', async ({ page }) => {
+  await page.addInitScript(() => {
+    Storage.prototype.getItem = () => {
+      throw new DOMException('storage disabled', 'SecurityError');
+    };
+    Storage.prototype.setItem = () => {
+      throw new DOMException('storage disabled', 'SecurityError');
+    };
+  });
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Parameters' }).click();
+  const plus = page.locator(
+    '.number-button[data-target="opt-max-mem"][data-direction="1"]',
+  );
+  await plus.click();
+  await expect(page.locator('#opt-max-mem')).toHaveValue('128');
+  await page.locator('#theme-select').selectOption('dark');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+});

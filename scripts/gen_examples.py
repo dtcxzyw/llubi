@@ -107,9 +107,7 @@ def parse_run_options(text: str) -> dict[str, object]:
                 bytes_value = int(value, 10)
                 if bytes_value < 0:
                     return {}
-                options["maxMemMiB"] = max(
-                    1, math.ceil(bytes_value / (1024 * 1024))
-                )
+                options["maxMemMiB"] = max(1, math.ceil(bytes_value / (1024 * 1024)))
             elif key in {"maxSteps", "maxStackDepth", "vscale", "seed"}:
                 options[key] = int(value, 10)
             elif key == "nanBehavior":

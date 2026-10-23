@@ -38,8 +38,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--jobs", type=int, help="parallel build jobs")
     parser.add_argument("--port", type=int, default=5173)
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--rebuild", action="store_true", help="delete build dirs first")
-    parser.add_argument("--no-build", action="store_true", help="serve existing artifacts")
+    parser.add_argument(
+        "--rebuild", action="store_true", help="delete build dirs first"
+    )
+    parser.add_argument(
+        "--no-build", action="store_true", help="serve existing artifacts"
+    )
     parser.add_argument(
         "--setup", action="store_true", help="install Node.js and emsdk if missing"
     )
@@ -73,7 +77,10 @@ def main() -> None:
             command.append("--clean")
         log("building wasm module")
         subprocess.run(command, check=True)
-    elif not (WEB / "public" / "wasm" / "llubi.wasm").is_file():
+    elif (
+        not (WEB / "public" / "wasm" / "llubi.js").is_file()
+        or not (WEB / "public" / "wasm" / "llubi.wasm").is_file()
+    ):
         die("no wasm artifacts found; run without --no-build first")
 
     npm = shutil.which("npm")
