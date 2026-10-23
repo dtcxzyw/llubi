@@ -487,6 +487,7 @@ async function loadCompletionCatalog(): Promise<CompletionCatalog> {
       instructions: [],
       types: [],
       attributes: [],
+      metadata: [],
       intrinsics: [],
       libcalls: [],
     };

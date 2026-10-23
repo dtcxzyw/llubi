@@ -132,6 +132,19 @@ test('offers and accepts libcall completions', async ({ page }) => {
   const popup = page.locator('.cm-tooltip-autocomplete');
   await expect(popup).toBeVisible();
   await expect(popup).toContainText('@malloc');
+  await page.waitForTimeout(150);
   await page.keyboard.press('Enter');
   await expect(editor).toContainText('@malloc');
+});
+
+test('offers generated metadata completions', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Manual' }).click();
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type('\n!db');
+  const popup = page.locator('.cm-tooltip-autocomplete');
+  await expect(popup).toBeVisible();
+  await expect(popup).toContainText('!dbg');
 });

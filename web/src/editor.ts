@@ -54,7 +54,8 @@ const completionSection = {
   keyword: { name: 'Keywords', rank: 2 },
   type: { name: 'Types', rank: 3 },
   attribute: { name: 'Attributes', rank: 4 },
-  function: { name: 'Functions', rank: 5 },
+  metadata: { name: 'Metadata', rank: 5 },
+  function: { name: 'Functions', rank: 6 },
 };
 
 const integerTypePattern = /\b(?:v\d+)?i\d+\b/g;
@@ -137,13 +138,27 @@ function makeCompletions(catalog: CompletionCatalog): Completion[] {
       };
     },
   );
+  const metadata: Completion[] = catalog.metadata.map((name) => ({
+    label: `!${name}`,
+    detail: 'fixed metadata',
+    type: 'property',
+    section: completionSection.metadata,
+  }));
   const libcalls: Completion[] = catalog.libcalls.map((name) => ({
     label: `@${name}`,
     detail: 'libcall',
     type: 'function',
     section: completionSection.function,
   }));
-  return [...instructions, ...keywords, ...types, ...attributes, ...intrinsics, ...libcalls];
+  return [
+    ...instructions,
+    ...keywords,
+    ...types,
+    ...attributes,
+    ...metadata,
+    ...intrinsics,
+    ...libcalls,
+  ];
 }
 
 function createCompletionSource(
@@ -153,7 +168,7 @@ function createCompletionSource(
   return (context) => {
     if (!context.explicit && inCommentOrString(context.state, context.pos))
       return null;
-    const word = context.matchBefore(/[@%]?[-a-zA-Z$._0-9]+/);
+    const word = context.matchBefore(/[@%!]?[-a-zA-Z$._0-9]+/);
     if (!word && !context.explicit) return null;
     if (word && word.from === word.to && !context.explicit) return null;
 
@@ -185,7 +200,7 @@ function createCompletionSource(
     return {
       from,
       options,
-      validFor: /^[@%]?[-a-zA-Z$._0-9]*$/,
+      validFor: /^[@%!]?[-a-zA-Z$._0-9]*$/,
     };
   };
 }

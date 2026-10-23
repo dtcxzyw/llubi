@@ -79,6 +79,14 @@ def parse_attributes(path: Path) -> list[str]:
     return sorted(set(names))
 
 
+def parse_fixed_metadata(path: Path) -> list[str]:
+    text = read_text(path)
+    names = re.findall(
+        r"LLVM_FIXED_MD_KIND\([^,]+,\s*\"([^\"]+)\"", text, re.S
+    )
+    return sorted(set(names))
+
+
 def parse_intrinsics(enums_path: Path, impl_path: Path) -> list[dict[str, object]]:
     enum_text = section(
         read_text(enums_path),
@@ -170,6 +178,7 @@ def main() -> None:
         llvm_lib / "lib" / "AsmParser" / "LLLexer.cpp"
     )
     attributes = parse_attributes(generated / "IR" / "Attributes.inc")
+    metadata = parse_fixed_metadata(llvm_lib / "include" / "llvm" / "IR" / "FixedMetadataKinds.def")
     intrinsics = parse_intrinsics(
         generated / "IR" / "IntrinsicEnums.inc",
         generated / "IR" / "IntrinsicImpl.inc",
@@ -184,6 +193,7 @@ def main() -> None:
         "instructions": instructions,
         "types": types,
         "attributes": attributes,
+        "metadata": metadata,
         "intrinsics": intrinsics,
         "libcalls": libcalls,
     }
@@ -194,7 +204,8 @@ def main() -> None:
     print(
         f"[completions] keywords={len(keywords)} instructions={len(instructions)} "
         f"types={len(types)} attributes={len(attributes)} "
-        f"intrinsics={len(intrinsics)} libcalls={len(libcalls)} -> {output}",
+        f"metadata={len(metadata)} intrinsics={len(intrinsics)} "
+        f"libcalls={len(libcalls)} -> {output}",
         flush=True,
     )
 

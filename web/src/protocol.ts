@@ -100,6 +100,7 @@ export interface CompletionCatalog {
   instructions: string[];
   types: string[];
   attributes: string[];
+  metadata: string[];
   intrinsics: IntrinsicSuggestion[];
   libcalls: string[];
 }
