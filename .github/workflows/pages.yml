@@ -68,9 +68,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: llubi-ccache-${{ runner.os }}-${{ github.run_id }}
+          key: llubi-ccache-${{ runner.os }}-${{ hashFiles('scripts/setup.sh') }}-${{ github.run_id }}
           restore-keys: |
-            llubi-ccache-${{ runner.os }}-
+            llubi-ccache-${{ runner.os }}-${{ hashFiles('scripts/setup.sh') }}-
 
       - name: Cache npm downloads
         uses: actions/cache@v4
