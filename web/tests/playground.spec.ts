@@ -368,3 +368,15 @@ test('jumps from program output to source, while source jumps to interpreter out
   );
   await expect(page.locator('.print-line.is-active')).toHaveCount(0);
 });
+
+test('restores the copy label after feedback', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  const copyButton = page.locator('#copy-run');
+  await expect(copyButton).toHaveText('copy');
+  await page.locator('#run-command').click();
+  await expect(copyButton).toHaveText('copied');
+  await page.locator('#run-command').click();
+  await expect(copyButton).toHaveText('copy', { timeout: 5000 });
+});

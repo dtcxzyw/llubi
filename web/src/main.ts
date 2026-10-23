@@ -78,6 +78,7 @@ let entryActiveIndex = -1;
 let entryMenuOpen = false;
 let activeRunOptions: RunOptions | null = null;
 let lastCheckLines = '';
+const copyFeedbackTimers = new WeakMap<HTMLButtonElement, number>();
 
 const initialIR = localStorage.getItem(STORAGE_IR) ?? HELLO_IR;
 let editor: EditorController;
@@ -606,11 +607,16 @@ async function copyText(text: string, button: HTMLButtonElement): Promise<void> 
     copied = fallbackCopy(text);
   }
   if (!copied) return;
-  const original = (button.textContent ?? 'copy').trim();
+  const original = button.dataset.copyLabel ?? (button.textContent ?? 'copy').trim();
+  button.dataset.copyLabel = original;
   button.textContent = 'copied';
-  window.setTimeout(() => {
+  const previous = copyFeedbackTimers.get(button);
+  if (previous !== undefined) window.clearTimeout(previous);
+  const timer = window.setTimeout(() => {
     button.textContent = original;
+    copyFeedbackTimers.delete(button);
   }, 1200);
+  copyFeedbackTimers.set(button, timer);
 }
 
 function fallbackCopy(text: string): boolean {
