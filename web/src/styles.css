@@ -612,12 +612,6 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
-.collapsible > summary {
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 12px;
-  margin-bottom: 7px;
-}
 
 .diagnostics {
   display: flex;

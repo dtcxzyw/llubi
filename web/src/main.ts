@@ -376,7 +376,12 @@ function renderResult(result: RunResult): void {
     root.append(trace);
   }
   if (result.stderr) {
-    root.append(collapsible('Interpreter stderr', result.stderr));
+    const stderr = element('section', 'block');
+    stderr.append(
+      element('h2', 'block-title', 'Interpreter stderr'),
+      element('pre', 'output-text', result.stderr),
+    );
+    root.append(stderr);
   }
   if (!result.stdout && !result.trace && result.diagnostics.length === 0) {
     root.append(element('p', 'empty', 'Program produced no output.'));
@@ -446,14 +451,6 @@ function renderDiagnostic(diagnostic: Diagnostic): HTMLElement {
   return article;
 }
 
-function collapsible(title: string, text: string): HTMLDetailsElement {
-  const details = document.createElement('details');
-  details.className = 'block collapsible';
-  const summary = document.createElement('summary');
-  summary.textContent = title;
-  details.append(summary, element('pre', 'output-text', text));
-  return details;
-}
 
 function element<K extends keyof HTMLElementTagNameMap>(
   tag: K,
