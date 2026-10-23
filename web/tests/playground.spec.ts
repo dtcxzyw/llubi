@@ -58,6 +58,7 @@ test('scales numeric parameters with arrow keys', async ({ page }) => {
   await maxSteps.fill('7');
   await maxSteps.press('ArrowUp');
   await expect(maxSteps).toHaveValue('70');
+  await expect(page.locator('#run-command')).toContainText('--max-steps=70');
   await maxSteps.press('ArrowDown');
   await expect(maxSteps).toHaveValue('7');
   await maxSteps.fill('1000000000');
@@ -65,6 +66,11 @@ test('scales numeric parameters with arrow keys', async ({ page }) => {
   await expect(maxSteps).toHaveValue('4294967295');
   await maxSteps.press('ArrowDown');
   await expect(maxSteps).toHaveValue('429496729');
+  await maxSteps.fill('0');
+  await maxSteps.press('ArrowUp');
+  await expect(maxSteps).toHaveValue('1');
+  await maxSteps.press('ArrowDown');
+  await expect(maxSteps).toHaveValue('0');
 
   const maxStack = page.locator('#opt-max-stack');
   await maxStack.fill('5');
@@ -72,6 +78,11 @@ test('scales numeric parameters with arrow keys', async ({ page }) => {
   await expect(maxStack).toHaveValue('10');
   await maxStack.press('ArrowDown');
   await expect(maxStack).toHaveValue('5');
+  await maxStack.fill('0');
+  await maxStack.press('ArrowUp');
+  await expect(maxStack).toHaveValue('1');
+  await maxStack.press('ArrowDown');
+  await expect(maxStack).toHaveValue('0');
 
   const seed = page.locator('#opt-seed');
   await seed.fill('3');
@@ -79,6 +90,11 @@ test('scales numeric parameters with arrow keys', async ({ page }) => {
   await expect(seed).toHaveValue('6');
   await seed.press('ArrowDown');
   await expect(seed).toHaveValue('3');
+  await seed.fill('0');
+  await seed.press('ArrowUp');
+  await expect(seed).toHaveValue('1');
+  await seed.press('ArrowDown');
+  await expect(seed).toHaveValue('0');
 
   const vscale = page.locator('#opt-vscale');
   await vscale.fill('5');

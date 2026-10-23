@@ -333,7 +333,7 @@ function scaleNumericInput(config: NumericScale, direction: 1 | -1): void {
     }
     next = Math.min(maxPower, Math.max(config.min, next));
   } else if (direction > 0) {
-    next = current * config.factor;
+    next = current === 0 ? 1 : current * config.factor;
   } else {
     next = Math.floor(current / config.factor);
   }
@@ -398,6 +398,7 @@ function onOptionsChanged(): void {
   saveOptions();
   inputVersion += 1;
   setCheckLines('');
+  updateRunCommand(options, null);
   scheduleRun();
 }
 
