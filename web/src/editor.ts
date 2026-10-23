@@ -58,8 +58,8 @@ const completionSection = {
   function: { name: 'Functions', rank: 6 },
 };
 
-const integerTypePattern = /\b(?:v\d+)?i\d+\b/g;
-const vectorTypePattern = /\bx\d+i\d+\b/g;
+const integerTypePattern = /\b(?:v\d+)?[ib]\d+\b/g;
+const vectorTypePattern = /\bx\d+[ib]\d+\b/g;
 
 function collectSymbols(state: EditorState, prefix: string, pos: number): string[] {
   const re = prefix === '%' ? /%[-a-zA-Z$._0-9]+/g : /@[-a-zA-Z$._0-9]+/g;
@@ -228,16 +228,26 @@ function createLlvmLanguage(catalog: CompletionCatalog) {
       if (stream.match(/[{}()\[\],]/)) return 'bracket';
       if (stream.match(/%[-a-zA-Z$._0-9]+/)) return 'variableName';
       if (stream.match(/@[-a-zA-Z$._0-9]+/)) return 'className';
+      if (stream.match(/[-+](?:inf|qnan|s?nan\(0x[0-9a-fA-F]+\))/))
+        return 'number';
+      if (stream.match(/[us]0x[0-9a-fA-F]+/)) return 'number';
+      if (stream.match(/f0x[0-9a-fA-F]+/)) return 'number';
       if (
         stream.match(
-          /[-+]?(?:0x[0-9a-fA-F]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?)/,
+          /[-+]?0x(?:[KLMHR][0-9a-fA-F]+|[0-9a-fA-F]+(?:\.[0-9a-fA-F]*)?(?:[pP][-+]?\d+)?)/,
+        )
+      )
+        return 'number';
+      if (
+        stream.match(
+          /[-+]?(?:(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?)/,
         )
       )
         return 'number';
       if (stream.match(/[a-zA-Z_][\w.]*/)) {
         const word = stream.current();
         if (instructions.has(word) || keywords.has(word)) return 'keyword';
-        if (types.has(word) || /^(?:i\d+|v\d+i\d+|x\d+i\d+|<-?\d+ x)/.test(word))
+        if (types.has(word) || /^(?:[ib]\d+|v\d+[ib]\d+|x\d+[ib]\d+|<-?\d+ x)/.test(word))
           return 'typeName';
         if (attributes.has(word)) return 'attributeName';
         if (stream.peek() === ':') return 'labelName';
