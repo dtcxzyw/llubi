@@ -1,6 +1,10 @@
 import './styles.css';
 
-import { createEditor, type EditorController } from './editor';
+import {
+  createEditor,
+  createLlvmHighlighter,
+  type EditorController,
+} from './editor';
 import type {
   BuildInfo,
   CompletionCatalog,
@@ -100,6 +104,11 @@ const BUILTIN_EXAMPLES: ExampleEntry[] = [
 
 const initialIR = localStorage.getItem(STORAGE_IR) ?? HELLO_IR;
 let editor: EditorController;
+let highlightLlvm: (text: string) => DocumentFragment = (text) => {
+  const fragment = document.createDocumentFragment();
+  fragment.append(document.createTextNode(text));
+  return fragment;
+};
 
 void start();
 
@@ -107,6 +116,7 @@ async function start(): Promise<void> {
   void loadBuildInfo();
   void loadExamples();
   const catalog = await loadCompletionCatalog();
+  highlightLlvm = createLlvmHighlighter(catalog);
   editor = createEditor(
     byId('editor'),
     initialIR,
@@ -859,8 +869,16 @@ function renderTrace(entries: TraceEntry[]): HTMLElement {
     row.dataset.line = String(entry.line);
     if (entry.targetLine) row.dataset.targetLine = String(entry.targetLine);
 
-    const text = element('button', 'trace-line', entry.text || ' ');
+    const text = element('button', 'trace-line');
     text.type = 'button';
+    const arrow = entry.text.indexOf(' => ');
+    if (arrow >= 0) {
+      text.append(highlightLlvm(entry.text.slice(0, arrow)));
+      text.append(document.createTextNode(' => '));
+      text.append(document.createTextNode(entry.text.slice(arrow + 4)));
+    } else {
+      text.append(highlightLlvm(entry.text || ' '));
+    }
     if (entry.line > 0) {
       text.title = `Jump to line ${entry.line}`;
       text.addEventListener('click', () => {

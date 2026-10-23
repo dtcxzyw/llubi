@@ -20,6 +20,7 @@ import {
   HighlightStyle,
   indentOnInput,
   StreamLanguage,
+  StringStream,
   syntaxHighlighting,
 } from '@codemirror/language';
 import { setDiagnostics, lintGutter } from '@codemirror/lint';
@@ -205,12 +206,54 @@ function createCompletionSource(
   };
 }
 
-function createLlvmLanguage(catalog: CompletionCatalog) {
+function createLlvmTokenMatcher(catalog: CompletionCatalog) {
   const instructions = new Set(catalog.instructions);
   const keywords = new Set(catalog.keywords);
   const types = new Set(catalog.types);
   const attributes = new Set(catalog.attributes);
 
+  return (stream: StringStream): string | null => {
+    if (stream.eatSpace()) return null;
+    if (stream.match(/;.*/)) return 'comment';
+    if (stream.match(/"(?:[^"\\]|\\.)*"?/)) return 'string';
+    if (stream.match(/![-a-zA-Z$._0-9]+/)) return 'meta';
+    if (stream.match(/#[0-9]+/)) return 'attributeName';
+    if (stream.match(/!?\{/)) return 'bracket';
+    if (stream.match(/[{}()\[\],]/)) return 'bracket';
+    if (stream.match(/%[-a-zA-Z$._0-9]+/)) return 'variableName';
+    if (stream.match(/@[-a-zA-Z$._0-9]+/)) return 'className';
+    if (stream.match(/[-+](?:inf|qnan|s?nan\(0x[0-9a-fA-F]+\))/))
+      return 'number';
+    if (stream.match(/[us]0x[0-9a-fA-F]+/)) return 'number';
+    if (stream.match(/f0x[0-9a-fA-F]+/)) return 'number';
+    if (
+      stream.match(
+        /[-+]?0x(?:[KLMHR][0-9a-fA-F]+|[0-9a-fA-F]+(?:\.[0-9a-fA-F]*)?(?:[pP][-+]?\d+)?)/,
+      )
+    )
+      return 'number';
+    if (
+      stream.match(
+        /[-+]?(?:(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?)/,
+      )
+    )
+      return 'number';
+    if (stream.match(/[a-zA-Z_][\w.]*/)) {
+      const word = stream.current();
+      if (instructions.has(word) || keywords.has(word)) return 'keyword';
+      if (types.has(word) || /^(?:[ib]\d+|v\d+[ib]\d+|x\d+[ib]\d+|<-?\d+ x)/.test(word))
+        return 'typeName';
+      if (attributes.has(word)) return 'attributeName';
+      if (stream.peek() === ':') return 'labelName';
+      return null;
+    }
+    if (stream.match(/[=<>!+\-*\/|&^~]+/)) return 'operator';
+    stream.next();
+    return null;
+  };
+}
+
+function createLlvmLanguage(catalog: CompletionCatalog) {
   return StreamLanguage.define<null>({
     name: 'llvm-ir',
     startState: () => null,
@@ -218,46 +261,31 @@ function createLlvmLanguage(catalog: CompletionCatalog) {
       commentTokens: { line: ';' },
       closeBrackets: { brackets: ['(', '[', '{', '"'] },
     },
-    token(stream) {
-      if (stream.eatSpace()) return null;
-      if (stream.match(/;.*/)) return 'comment';
-      if (stream.match(/"(?:[^"\\]|\\.)*"?/)) return 'string';
-      if (stream.match(/![-a-zA-Z$._0-9]+/)) return 'meta';
-      if (stream.match(/#[0-9]+/)) return 'attributeName';
-      if (stream.match(/!?\{/)) return 'bracket';
-      if (stream.match(/[{}()\[\],]/)) return 'bracket';
-      if (stream.match(/%[-a-zA-Z$._0-9]+/)) return 'variableName';
-      if (stream.match(/@[-a-zA-Z$._0-9]+/)) return 'className';
-      if (stream.match(/[-+](?:inf|qnan|s?nan\(0x[0-9a-fA-F]+\))/))
-        return 'number';
-      if (stream.match(/[us]0x[0-9a-fA-F]+/)) return 'number';
-      if (stream.match(/f0x[0-9a-fA-F]+/)) return 'number';
-      if (
-        stream.match(
-          /[-+]?0x(?:[KLMHR][0-9a-fA-F]+|[0-9a-fA-F]+(?:\.[0-9a-fA-F]*)?(?:[pP][-+]?\d+)?)/,
-        )
-      )
-        return 'number';
-      if (
-        stream.match(
-          /[-+]?(?:(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?)/,
-        )
-      )
-        return 'number';
-      if (stream.match(/[a-zA-Z_][\w.]*/)) {
-        const word = stream.current();
-        if (instructions.has(word) || keywords.has(word)) return 'keyword';
-        if (types.has(word) || /^(?:[ib]\d+|v\d+[ib]\d+|x\d+[ib]\d+|<-?\d+ x)/.test(word))
-          return 'typeName';
-        if (attributes.has(word)) return 'attributeName';
-        if (stream.peek() === ':') return 'labelName';
-        return null;
-      }
-      if (stream.match(/[=<>!+\-*\/|&^~]+/)) return 'operator';
-      stream.next();
-      return null;
-    },
+    token: createLlvmTokenMatcher(catalog),
   });
+}
+
+export function createLlvmHighlighter(
+  catalog: CompletionCatalog,
+): (text: string) => DocumentFragment {
+  const token = createLlvmTokenMatcher(catalog);
+  return (text: string) => {
+    const fragment = document.createDocumentFragment();
+    const stream = new StringStream(text, 2, 2);
+    while (stream.pos < text.length) {
+      const start = stream.pos;
+      stream.start = start;
+      const type = token(stream);
+      if (stream.pos === start) stream.next();
+      const end = stream.pos;
+      if (end <= start) break;
+      const span = document.createElement('span');
+      if (type) span.className = `tok-${type.replace(/\./g, '-')}`;
+      span.textContent = text.slice(start, end);
+      fragment.append(span);
+    }
+    return fragment;
+  };
 }
 
 const highlightStyle = HighlightStyle.define([

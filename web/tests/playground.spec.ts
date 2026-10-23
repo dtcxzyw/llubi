@@ -217,6 +217,7 @@ done:
   await page.locator('#run').click();
   await expect(page.locator('.trace-row')).toHaveCount(4);
 
+  await expect(page.locator('.trace-line .tok-keyword').first()).toBeVisible();
   await page.locator('.trace-line', { hasText: 'Entering function: main' }).click();
   await expect(page.locator('.cm-activeLine')).toContainText('define i32 @main');
 
