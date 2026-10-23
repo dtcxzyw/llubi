@@ -101,9 +101,10 @@ used automatically when available.
   stdout and stderr are combined in execution order like
   `update_llubi_test_checks.py`, and failing runs get a `not ` prefix. The same
   header can open a prefilled LLVM issue with the reproducer and output.
-- The wasm build enables LLVM assertions while forcing ABI-breaking checks off.
-  A crash is reported as an internal interpreter error with the assertion or
-  LLVM fatal message, and the worker is recreated for the next run.
+- The release wasm build uses `-O3` with ThinLTO, enables LLVM assertions, and
+  forces ABI-breaking checks off. A crash is reported as an internal interpreter
+  error with the assertion or LLVM fatal message, and the worker is recreated
+  for the next run. Debug builds disable LTO.
 - Interpreter output is structured JSON. Runtime errors get source lines by
   redirecting LLVM's stderr stack trace to a MEMFS file and parsing the
   `Stacktrace:` frames. This keeps the LLVM checkout unmodified.

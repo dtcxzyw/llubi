@@ -200,6 +200,7 @@ def wasm_configure(
         "-DLLVM_ENABLE_RTTI=OFF",
         "-DLLVM_ENABLE_ASSERTIONS=ON",
         "-DLLVM_ABI_BREAKING_CHECKS=FORCE_OFF",
+        f"-DLLVM_ENABLE_LTO={'OFF' if debug else 'Thin'}",
         "-DLLVM_ENABLE_ZLIB=OFF",
         "-DLLVM_ENABLE_ZSTD=OFF",
         "-DLLVM_ENABLE_LIBXML2=OFF",
