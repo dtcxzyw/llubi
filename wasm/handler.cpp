@@ -84,6 +84,8 @@ void WebEventHandler::appendTrace(int Line, llvm::StringRef Text,
     }
     Entry.Text = std::move(Stored);
     TraceEntries.push_back(std::move(Entry));
+    if (Kind == "stdout")
+      PendingStdout.push_back(TraceEntries.size() - 1);
     FirstLine = false;
     if (LineText.size() > Available || TraceSize >= Limit) {
       TraceTruncated = true;
@@ -91,6 +93,12 @@ void WebEventHandler::appendTrace(int Line, llvm::StringRef Text,
     }
     ++TraceSize;
     Start = End + 1;
+  }
+
+  if (Kind != "stdout" && Line > 0) {
+    for (size_t Index : PendingStdout)
+      TraceEntries[Index].Line = Line;
+    PendingStdout.clear();
   }
 }
 

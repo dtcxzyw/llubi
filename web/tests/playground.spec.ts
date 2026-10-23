@@ -270,6 +270,10 @@ test('copies the RUN line and generated check lines', async ({
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     await command.textContent(),
   );
+  await command.click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    await command.textContent(),
+  );
 
   await expect(page.locator('#copy-checks')).toBeEnabled();
   await page.locator('#copy-checks').click();
@@ -308,7 +312,7 @@ test('uses not and non-default options in RUN, and generates error checks', asyn
   );
 });
 
-test('splits print output at one quarter height', async ({ page }) => {
+test('splits print output at one sixth height', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('#status')).toHaveClass(/status-ok/);
   await expect(page.locator('.print-section .output-section-header')).toHaveText(
@@ -328,11 +332,15 @@ test('splits print output at one quarter height', async ({ page }) => {
       other: other.height,
     };
   });
-  expect(metrics.print / metrics.total).toBeGreaterThan(0.2);
-  expect(metrics.print / metrics.total).toBeLessThan(0.3);
-  expect(metrics.other / metrics.total).toBeGreaterThan(0.7);
-  expect(metrics.other / metrics.total).toBeLessThan(0.8);
+  expect(metrics.print / metrics.total).toBeGreaterThan(0.13);
+  expect(metrics.print / metrics.total).toBeLessThan(0.2);
+  expect(metrics.other / metrics.total).toBeGreaterThan(0.8);
+  expect(metrics.other / metrics.total).toBeLessThan(0.87);
   await expect(page.locator('#other-output')).not.toContainText('Verbose trace');
+  await expect(page.locator('#other-output')).not.toContainText('Diagnostics');
+  await expect(page.locator('#other-output')).not.toContainText(
+    'Interpreter stderr',
+  );
 
   const before = metrics.print;
   await page.locator('#output-resizer').focus();
@@ -341,4 +349,22 @@ test('splits print output at one quarter height', async ({ page }) => {
     .locator('.print-section')
     .evaluate((node) => node.getBoundingClientRect().height);
   expect(after).toBeGreaterThan(before);
+});
+
+test('jumps from program output to source, while source jumps to interpreter output', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  const printLine = page.locator('.print-line', { hasText: 'Hello from llubi' });
+  await printLine.click();
+  await expect(page.locator('.cm-activeLine')).toContainText(
+    '%r = call i32 (ptr, ...) @printf',
+  );
+
+  await page.locator('.cm-line', { hasText: '%r = call i32' }).click();
+  await expect(page.locator('.trace-row[data-line="7"]')).toHaveClass(
+    /is-active/,
+  );
+  await expect(page.locator('.print-line.is-active')).toHaveCount(0);
 });

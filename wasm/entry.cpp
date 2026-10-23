@@ -419,7 +419,7 @@ std::string makeFailure(StringRef Phase, StringRef Message, int Line = 0,
   Root["exit"] = std::move(Exit);
   Root["stdout"] = "";
   Root["stderr"] = "";
-  Root["trace"] = "";
+  Root["trace"] = json::Array();
   Root["diagnostics"] = std::move(Diags);
   Root["truncated"] = false;
   Root["durationMs"] = 0;
@@ -486,7 +486,7 @@ std::string runLlubi(StringRef IR, StringRef OptionsText) {
     Root["exit"] = std::move(Exit);
     Root["stdout"] = "";
     Root["stderr"] = StderrText;
-    Root["trace"] = "";
+    Root["trace"] = json::Array();
     Root["diagnostics"] = std::move(Diagnostics);
     Root["truncated"] = false;
     Root["durationMs"] = static_cast<int64_t>(
@@ -513,7 +513,7 @@ std::string runLlubi(StringRef IR, StringRef OptionsText) {
       Root["exit"] = std::move(Exit);
       Root["stdout"] = "";
       Root["stderr"] = StderrText;
-      Root["trace"] = "";
+      Root["trace"] = json::Array();
       Root["diagnostics"] = std::move(Diagnostics);
       Root["truncated"] = false;
       Root["durationMs"] = static_cast<int64_t>(
@@ -549,7 +549,7 @@ std::string runLlubi(StringRef IR, StringRef OptionsText) {
     Root["exit"] = std::move(Exit);
     Root["stdout"] = "";
     Root["stderr"] = StderrText;
-    Root["trace"] = "";
+    Root["trace"] = json::Array();
     Root["diagnostics"] = std::move(Diagnostics);
     Root["truncated"] = false;
     Root["durationMs"] = static_cast<int64_t>(

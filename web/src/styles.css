@@ -194,6 +194,7 @@ button {
   min-width: 0;
   overflow-x: auto;
   color: var(--muted);
+  cursor: pointer;
   font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.5;
@@ -739,7 +740,7 @@ button:disabled {
 }
 
 .print-section {
-  flex: 0 0 calc(25% - 3.5px);
+  flex: 0 0 calc(100% / 6 - 3.5px);
 }
 
 .other-section {
@@ -819,12 +820,39 @@ button:disabled {
   letter-spacing: 0.1em;
 }
 
+.print-lines {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.print-line {
+  border: 0;
+  padding: 1px 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.print-line:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.print-line.is-active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.print-line:disabled {
+  color: var(--text);
+  cursor: default;
+}
+
 .trace {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--panel);
-  overflow: auto;
-  max-height: 24em;
   font-family: var(--font-mono);
   font-size: 12.5px;
   line-height: 1.5;
@@ -883,14 +911,13 @@ button:disabled {
 
 .output-text {
   margin: 0;
-  padding: 10px 12px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  padding: 0;
+  background: transparent;
+  border: 0;
   font-family: var(--font-mono);
   font-size: 12.5px;
   line-height: 1.5;
-  overflow: auto;
+  overflow: visible;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

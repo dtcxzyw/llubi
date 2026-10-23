@@ -65,7 +65,7 @@ export function setupOutputSplitter(
   splitter: HTMLElement,
   topPane: HTMLElement,
 ): void {
-  const defaultPercent = 25;
+  const defaultPercent = 100 / 6;
   const minPercent = 15;
   const maxPercent = 85;
   const stored = localStorage.getItem(OUTPUT_STORAGE_KEY);

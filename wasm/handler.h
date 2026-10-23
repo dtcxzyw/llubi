@@ -85,6 +85,7 @@ private:
   bool StdoutTruncated = false;
   bool TraceTruncated = false;
   std::vector<TraceEntry> TraceEntries;
+  std::vector<size_t> PendingStdout;
   std::vector<RuntimeIssue> Issues;
 };
 

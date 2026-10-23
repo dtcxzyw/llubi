@@ -126,6 +126,9 @@ async function start(): Promise<void> {
   copyRunButton.addEventListener('click', () =>
     copyText(runCommandElement.textContent ?? '', copyRunButton),
   );
+  runCommandElement.addEventListener('click', () =>
+    copyText(runCommandElement.textContent ?? '', copyRunButton),
+  );
   copyChecksButton.addEventListener('click', () =>
     copyText(lastCheckLines, copyChecksButton),
   );
@@ -644,38 +647,59 @@ function renderResult(result: RunResult, runOptions: RunOptions): void {
 
   const root = element('div', 'result');
 
+  if (result.trace.length > 0) root.append(renderTrace(result.trace));
+
   if (result.diagnostics.length > 0) {
-    const diagnostics = element('section', 'block');
-    diagnostics.append(element('h2', 'block-title', 'Diagnostics'));
     const list = element('div', 'diagnostics');
     for (const diagnostic of result.diagnostics) {
       list.append(renderDiagnostic(diagnostic));
     }
-    diagnostics.append(list);
-    root.append(diagnostics);
+    root.append(list);
   }
 
-  if (result.trace.length > 0) {
-    root.append(renderTrace(result.trace));
-  }
-  if (result.stderr) {
-    const stderr = element('section', 'block');
-    stderr.append(
-      element('h2', 'block-title', 'Interpreter stderr'),
-      element('pre', 'output-text', result.stderr),
-    );
-    root.append(stderr);
-  }
   if (result.trace.length === 0 && result.diagnostics.length === 0) {
-    root.append(element('p', 'empty', 'No diagnostics or trace.'));
+    root.append(element('p', 'empty', 'No interpreter output.'));
   }
 
-  printOutput.replaceChildren(
-    result.stdout
-      ? element('pre', 'output-text', result.stdout)
-      : element('p', 'empty', 'No program output.'),
-  );
+  renderProgramOutput(result);
   otherOutput.replaceChildren(root);
+}
+
+function renderProgramOutput(result: RunResult): void {
+  const entries = result.trace.filter((entry) => entry.kind === 'stdout');
+  if (entries.length === 0) {
+    printOutput.replaceChildren(
+      result.stdout
+        ? element('pre', 'output-text', result.stdout)
+        : element('p', 'empty', 'No program output.'),
+    );
+    return;
+  }
+
+  const lines = element('div', 'print-lines');
+  for (const entry of entries) {
+    const line = element('button', 'print-line', entry.text || ' ');
+    line.type = 'button';
+    if (entry.line > 0) {
+      line.title = `Jump to line ${entry.line}`;
+      line.addEventListener('click', () => {
+        activatePrintRow(line);
+        editor.revealLine(entry.line);
+      });
+    } else {
+      line.disabled = true;
+    }
+    lines.append(line);
+  }
+  printOutput.replaceChildren(lines);
+}
+
+function activatePrintRow(row: HTMLElement): void {
+  for (const active of printOutput.querySelectorAll('.print-line.is-active'))
+    active.classList.remove('is-active');
+  for (const active of otherOutput.querySelectorAll('.trace-row.is-active'))
+    active.classList.remove('is-active');
+  row.classList.add('is-active');
 }
 
 function renderTrace(entries: TraceEntry[]): HTMLElement {
@@ -721,13 +745,15 @@ function renderTrace(entries: TraceEntry[]): HTMLElement {
 }
 
 function activateTraceRow(row: HTMLElement): void {
-  for (const active of outputElement.querySelectorAll('.trace-row.is-active'))
+  for (const active of otherOutput.querySelectorAll('.trace-row.is-active'))
+    active.classList.remove('is-active');
+  for (const active of printOutput.querySelectorAll('.print-line.is-active'))
     active.classList.remove('is-active');
   row.classList.add('is-active');
 }
 
 function revealTraceForLine(line: number): boolean {
-  const rows = outputElement.querySelectorAll<HTMLElement>('.trace-row');
+  const rows = otherOutput.querySelectorAll<HTMLElement>('.trace-row');
   for (const row of rows) {
     if (
       Number(row.dataset.line) === line ||
