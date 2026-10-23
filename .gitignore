@@ -218,3 +218,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# llubi web build outputs
+web/node_modules/
+web/public/wasm/llubi.js
+web/public/wasm/llubi.wasm
+web/public/wasm/llubi.wasm.map
+web/public/build-info.json
+web/test-results/
+web/playwright-report/
+web/dist/
