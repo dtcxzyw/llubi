@@ -95,3 +95,43 @@ test('toggles LLVM IR line comments with Mod-/', async ({ page }) => {
   await page.keyboard.press('Control+/');
   await expect(editor).not.toContainText('; ret i32 0');
 });
+
+test('auto-closes brackets in the editor', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Manual' }).click();
+  const editor = page.locator('.cm-content');
+  await page.locator('.cm-line', { hasText: 'ret i32 0' }).click();
+  await page.keyboard.press('End');
+  await page.keyboard.type('(');
+  await expect(editor).toContainText('ret i32 0()');
+  await page.keyboard.press('Backspace');
+  await expect(editor).not.toContainText('ret i32 0()');
+});
+
+test('offers intrinsic completions', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Manual' }).click();
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type('\n@llvm.mem');
+  const popup = page.locator('.cm-tooltip-autocomplete');
+  await expect(popup).toBeVisible();
+  await expect(popup).toContainText('@llvm.memcpy.');
+});
+
+test('offers and accepts libcall completions', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Manual' }).click();
+  const editor = page.locator('.cm-content');
+  await editor.click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type('\n@mall');
+  const popup = page.locator('.cm-tooltip-autocomplete');
+  await expect(popup).toBeVisible();
+  await expect(popup).toContainText('@malloc');
+  await page.keyboard.press('Enter');
+  await expect(editor).toContainText('@malloc');
+});

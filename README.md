@@ -52,6 +52,10 @@ used automatically when available.
 ## Web app
 
 - Vite + TypeScript, CodeMirror 6 for the IR editor and diagnostics.
+- Completion data is generated at build time from LLParser tokens (`LLLexer.cpp`)
+  and TableGen outputs (`Attributes.inc`, `IntrinsicEnums.inc`,
+  `IntrinsicImpl.inc`, `TargetLibraryInfo.inc`), so no instruction, intrinsic,
+  or libcall list is maintained by hand.
 - Auto/Manual mode switch: Auto hides the Run button and reruns after edits;
   Manual exposes an explicit Run action. Ctrl/Cmd+Enter always runs.
 - Execution happens in a Web Worker; a new edit supersedes an in-flight run,

@@ -90,6 +90,20 @@ export interface RunResult {
   durationMs: number;
 }
 
+export interface IntrinsicSuggestion {
+  name: string;
+  overloaded: boolean;
+}
+
+export interface CompletionCatalog {
+  keywords: string[];
+  instructions: string[];
+  types: string[];
+  attributes: string[];
+  intrinsics: IntrinsicSuggestion[];
+  libcalls: string[];
+}
+
 export interface BuildInfo {
   llvmVersion: string;
   llvmCommit: string;

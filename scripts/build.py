@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / "scripts"
 WEB_PUBLIC = ROOT / "web" / "public"
 
 
@@ -243,6 +244,21 @@ def read_llvm_version(build_dir: Path) -> str:
     return match.group(1) if match else "unknown"
 
 
+def generate_completions(llvm_source: Path, build_dir: Path) -> None:
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "gen_completions.py"),
+            "--llvm-source",
+            str(llvm_source),
+            "--build-dir",
+            str(build_dir),
+            "--output",
+            str(WEB_PUBLIC / "completions.json"),
+        ]
+    )
+
+
 def emscripten_version() -> str:
     try:
         output = subprocess.check_output(
@@ -359,10 +375,9 @@ def main() -> None:
         ]
     )
 
-    if args.no_copy:
-        write_build_info(llvm_source, build_dir)
-        return
-    stage_artifacts(build_dir)
+    generate_completions(llvm_source, build_dir)
+    if not args.no_copy:
+        stage_artifacts(build_dir)
     write_build_info(llvm_source, build_dir)
 
 

@@ -1,4 +1,13 @@
 import {
+  autocompletion,
+  closeBrackets,
+  closeBracketsKeymap,
+  completionKeymap,
+  type Completion,
+  type CompletionContext,
+  type CompletionResult,
+} from '@codemirror/autocomplete';
+import {
   defaultKeymap,
   history,
   historyKeymap,
@@ -37,226 +46,194 @@ import {
 } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 
-import type { Diagnostic } from './protocol';
+import type { CompletionCatalog, Diagnostic } from './protocol';
 
-const keywords = new Set([
-  'define',
-  'declare',
-  'ret',
-  'br',
-  'switch',
-  'indirectbr',
-  'invoke',
-  'callbr',
-  'call',
-  'resume',
-  'catchswitch',
-  'catchret',
-  'cleanupret',
-  'unreachable',
-  'add',
-  'sub',
-  'mul',
-  'udiv',
-  'sdiv',
-  'urem',
-  'srem',
-  'fadd',
-  'fsub',
-  'fmul',
-  'fdiv',
-  'frem',
-  'shl',
-  'lshr',
-  'ashr',
-  'and',
-  'or',
-  'xor',
-  'extractelement',
-  'insertelement',
-  'shufflevector',
-  'extractvalue',
-  'insertvalue',
-  'alloca',
-  'load',
-  'store',
-  'fence',
-  'cmpxchg',
-  'atomicrmw',
-  'getelementptr',
-  'trunc',
-  'zext',
-  'sext',
-  'fptrunc',
-  'fpext',
-  'fptoui',
-  'fptosi',
-  'uitofp',
-  'sitofp',
-  'ptrtoint',
-  'inttoptr',
-  'bitcast',
-  'addrspacecast',
-  'icmp',
-  'fcmp',
-  'phi',
-  'select',
-  'freeze',
-  'va_arg',
-  'landingpad',
-  'catchpad',
-  'cleanuppad',
-  'musttail',
-  'tail',
-  'notail',
-  'volatile',
-  'atomic',
-  'syncscope',
-  'nsw',
-  'nuw',
-  'exact',
-  'inbounds',
-  'inrange',
-  'disjoint',
-  'nnan',
-  'ninf',
-  'nsz',
-  'arcp',
-  'contract',
-  'afn',
-  'reassoc',
-  'fast',
-  'true',
-  'false',
-  'null',
-  'none',
-  'undef',
-  'poison',
-  'zeroinitializer',
-  'blockaddress',
-  'x',
-  'to',
-  'unwind',
-  'within',
-  'from',
-  'cleanup',
-  'catch',
-  'filter',
-  'label',
-  'metadata',
-  'token',
-  'ptr',
-  'opaque',
-]);
+const completionSection = {
+  symbol: { name: 'Symbols', rank: 0 },
+  instruction: { name: 'Instructions', rank: 1 },
+  keyword: { name: 'Keywords', rank: 2 },
+  type: { name: 'Types', rank: 3 },
+  attribute: { name: 'Attributes', rank: 4 },
+  function: { name: 'Functions', rank: 5 },
+};
 
-const types = new Set([
-  'void',
-  'half',
-  'bfloat',
-  'float',
-  'double',
-  'fp128',
-  'x86_fp80',
-  'ppc_fp128',
-  'x86_mmx',
-  'x86_amx',
-  'target',
-  'type',
-]);
+const integerTypePattern = /\b(?:v\d+)?i\d+\b/g;
+const vectorTypePattern = /\bx\d+i\d+\b/g;
 
-const attributes = new Set([
-  'align',
-  'alignstack',
-  'allocsize',
-  'alwaysinline',
-  'byval',
-  'byref',
-  'cold',
-  'dereferenceable',
-  'dereferenceable_or_null',
-  'disable_sanitizer_instrumentation',
-  'elementtype',
-  'immarg',
-  'inalloca',
-  'inreg',
-  'minsize',
-  'mustprogress',
-  'naked',
-  'noalias',
-  'nobuiltin',
-  'nocallback',
-  'nocapture',
-  'nocf_check',
-  'nofree',
-  'noint',
-  'noinline',
-  'nomerge',
-  'nonlazybind',
-  'nonnull',
-  'noprofile',
-  'norecurse',
-  'noundef',
-  'nounwind',
-  'nosync',
-  'optforfuzzing',
-  'optnone',
-  'optsize',
-  'preallocated',
-  'readnone',
-  'readonly',
-  'returned',
-  'sret',
-  'sanitize_address',
-  'sanitize_memory',
-  'sanitize_thread',
-  'signext',
-  'speculatable',
-  'swiftasync',
-  'swifterror',
-  'swiftself',
-  'uwtable',
-  'willreturn',
-  'writable',
-  'writeonly',
-  'zeroext',
-]);
+function collectSymbols(state: EditorState, prefix: string, pos: number): string[] {
+  const re = prefix === '%' ? /%[-a-zA-Z$._0-9]+/g : /@[-a-zA-Z$._0-9]+/g;
+  const text = state.doc.toString();
+  const symbols = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text))) {
+    if (match.index !== pos) symbols.add(match[0]);
+  }
+  return [...symbols].sort();
+}
 
-const llvmIR = StreamLanguage.define<null>({
-  name: 'llvm-ir',
-  startState: () => null,
-  languageData: {
-    commentTokens: { line: ';' },
-  },
-  token(stream) {
-    if (stream.eatSpace()) return null;
-    if (stream.match(/;.*/)) return 'comment';
-    if (stream.match(/"(?:[^"\\]|\\.)*"?/)) return 'string';
-    if (stream.match(/![-a-zA-Z$._0-9]+/)) return 'meta';
-    if (stream.match(/#[0-9]+/)) return 'attributeName';
-    if (stream.match(/!?\{/)) return 'bracket';
-    if (stream.match(/[{}()[\],]/)) return 'bracket';
-    if (stream.match(/%[-a-zA-Z$._0-9]+/)) return 'variableName';
-    if (stream.match(/@[-a-zA-Z$._0-9]+/)) return 'className';
-    if (
-      stream.match(
-        /[-+]?(?:0x[0-9a-fA-F]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?)/,
-      )
-    )
-      return 'number';
-    if (stream.match(/[a-zA-Z_][\w.]*/)) {
-      const word = stream.current();
-      if (keywords.has(word)) return 'keyword';
-      if (types.has(word) || /^(?:i\d+|v\d+i\d+|x\d+i\d+|<\d+ x)/.test(word))
-        return 'typeName';
-      if (attributes.has(word)) return 'attributeName';
-      if (stream.peek() === ':') return 'labelName';
-      return null;
+function collectTypeHints(state: EditorState): string[] {
+  const text = state.doc.toString();
+  const names = new Set<string>();
+  for (const pattern of [integerTypePattern, vectorTypePattern]) {
+    pattern.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text))) names.add(match[0]);
+  }
+  return [...names].sort();
+}
+
+function inCommentOrString(state: EditorState, pos: number): boolean {
+  const line = state.doc.lineAt(pos);
+  const before = line.text.slice(0, pos - line.from);
+  let inString = false;
+  let escaped = false;
+  for (const ch of before) {
+    if (escaped) {
+      escaped = false;
+      continue;
     }
-    if (stream.match(/[=<>!+\-*\/|&^~]+/)) return 'operator';
-    stream.next();
-    return null;
-  },
-});
+    if (ch === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') inString = !inString;
+    else if (ch === ';' && !inString) return true;
+  }
+  return inString;
+}
+
+function makeCompletions(catalog: CompletionCatalog): Completion[] {
+  const instructions: Completion[] = catalog.instructions.map((label) => ({
+    label,
+    type: 'keyword',
+    section: completionSection.instruction,
+  }));
+  const keywords: Completion[] = catalog.keywords.map((label) => ({
+    label,
+    type: 'keyword',
+    section: completionSection.keyword,
+  }));
+  const types: Completion[] = catalog.types.map((label) => ({
+    label,
+    type: 'type',
+    section: completionSection.type,
+  }));
+  const attributes: Completion[] = catalog.attributes.map((label) => ({
+    label,
+    type: 'property',
+    section: completionSection.attribute,
+  }));
+  const intrinsics: Completion[] = catalog.intrinsics.map(
+    ({ name, overloaded }) => {
+      const label = `@${name}${overloaded ? '.' : ''}`;
+      return {
+        label,
+        detail: overloaded ? 'overloaded intrinsic' : 'intrinsic',
+        type: 'function',
+        section: completionSection.function,
+        info: overloaded
+          ? 'LLVM overloaded intrinsic names include type suffixes derived from the operand types. Add the suffix that matches this call.'
+          : undefined,
+      };
+    },
+  );
+  const libcalls: Completion[] = catalog.libcalls.map((name) => ({
+    label: `@${name}`,
+    detail: 'libcall',
+    type: 'function',
+    section: completionSection.function,
+  }));
+  return [...instructions, ...keywords, ...types, ...attributes, ...intrinsics, ...libcalls];
+}
+
+function createCompletionSource(
+  catalog: CompletionCatalog,
+): (context: CompletionContext) => CompletionResult | null {
+  const baseCompletions = makeCompletions(catalog);
+  return (context) => {
+    if (!context.explicit && inCommentOrString(context.state, context.pos))
+      return null;
+    const word = context.matchBefore(/[@%]?[-a-zA-Z$._0-9]+/);
+    if (!word && !context.explicit) return null;
+    if (word && word.from === word.to && !context.explicit) return null;
+
+    const from = word ? word.from : context.pos;
+    let options: Completion[] = baseCompletions;
+    if (word) {
+      const prefix = context.state.sliceDoc(word.from, word.to);
+      if (prefix.startsWith('%') || prefix.startsWith('@')) {
+        const symbols = collectSymbols(context.state, prefix[0], word.from).map(
+          (label) => ({
+            label,
+            type: 'variable',
+            section: completionSection.symbol,
+            boost: 20,
+          }),
+        );
+        options = [...symbols, ...baseCompletions];
+      } else {
+        const types = collectTypeHints(context.state).map((label) => ({
+          label,
+          type: 'type',
+          section: completionSection.type,
+          boost: 10,
+        }));
+        options = [...types, ...baseCompletions];
+      }
+    }
+
+    return {
+      from,
+      options,
+      validFor: /^[@%]?[-a-zA-Z$._0-9]*$/,
+    };
+  };
+}
+
+function createLlvmLanguage(catalog: CompletionCatalog) {
+  const instructions = new Set(catalog.instructions);
+  const keywords = new Set(catalog.keywords);
+  const types = new Set(catalog.types);
+  const attributes = new Set(catalog.attributes);
+
+  return StreamLanguage.define<null>({
+    name: 'llvm-ir',
+    startState: () => null,
+    languageData: {
+      commentTokens: { line: ';' },
+      closeBrackets: { brackets: ['(', '[', '{', '"'] },
+    },
+    token(stream) {
+      if (stream.eatSpace()) return null;
+      if (stream.match(/;.*/)) return 'comment';
+      if (stream.match(/"(?:[^"\\]|\\.)*"?/)) return 'string';
+      if (stream.match(/![-a-zA-Z$._0-9]+/)) return 'meta';
+      if (stream.match(/#[0-9]+/)) return 'attributeName';
+      if (stream.match(/!?\{/)) return 'bracket';
+      if (stream.match(/[{}()\[\],]/)) return 'bracket';
+      if (stream.match(/%[-a-zA-Z$._0-9]+/)) return 'variableName';
+      if (stream.match(/@[-a-zA-Z$._0-9]+/)) return 'className';
+      if (
+        stream.match(
+          /[-+]?(?:0x[0-9a-fA-F]+|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?)/,
+        )
+      )
+        return 'number';
+      if (stream.match(/[a-zA-Z_][\w.]*/)) {
+        const word = stream.current();
+        if (instructions.has(word) || keywords.has(word)) return 'keyword';
+        if (types.has(word) || /^(?:i\d+|v\d+i\d+|x\d+i\d+|<-?\d+ x)/.test(word))
+          return 'typeName';
+        if (attributes.has(word)) return 'attributeName';
+        if (stream.peek() === ':') return 'labelName';
+        return null;
+      }
+      if (stream.match(/[=<>!+\-*\/|&^~]+/)) return 'operator';
+      stream.next();
+      return null;
+    },
+  });
+}
 
 const highlightStyle = HighlightStyle.define([
   { tag: tags.comment, color: 'var(--syntax-comment)', fontStyle: 'italic' },
@@ -310,6 +287,7 @@ export function createEditor(
   parent: HTMLElement,
   initialValue: string,
   onChange: (value: string) => void,
+  catalog: CompletionCatalog,
 ): EditorController {
   const view = new EditorView({
     parent,
@@ -332,9 +310,16 @@ export function createEditor(
         highlightSelectionMatches(),
         lintGutter(),
         errorLineField,
-        llvmIR,
+        createLlvmLanguage(catalog),
+        closeBrackets(),
+        autocompletion({
+          override: [createCompletionSource(catalog)],
+          maxRenderedOptions: 80,
+        }),
         syntaxHighlighting(highlightStyle),
         keymap.of([
+          ...closeBracketsKeymap,
+          ...completionKeymap,
           ...defaultKeymap,
           ...historyKeymap,
           ...searchKeymap,

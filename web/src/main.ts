@@ -1,8 +1,9 @@
 import './styles.css';
 
-import { createEditor } from './editor';
+import { createEditor, type EditorController } from './editor';
 import type {
   BuildInfo,
+  CompletionCatalog,
   Diagnostic,
   RunOptions,
   RunResult,
@@ -35,6 +36,7 @@ const splitter = byId<HTMLElement>('splitter');
 const leftPane = document.querySelector<HTMLElement>('.editor-pane');
 
 if (!leftPane) throw new Error('editor pane is missing');
+const editorPane = leftPane;
 
 const optionInputs = {
   entryFunction: byId<HTMLInputElement>('opt-entry'),
@@ -61,45 +63,52 @@ let runTimeout: number | undefined;
 let worker: Worker | null = null;
 
 const initialIR = localStorage.getItem(STORAGE_IR) ?? HELLO_IR;
-const editor = createEditor(byId('editor'), initialIR, onEditorChange);
+let editor: EditorController;
 
-setupSplitter(splitElement, splitter, leftPane);
-applyOptionsToForm(options);
-applyRunMode(autoRun);
-updateEditorMeta(initialIR);
-renderEmpty();
-void loadBuildInfo();
-if (autoRun) scheduleRun(0);
-else runNow();
+void start();
 
-runButton.addEventListener('click', () => runNow());
-modeAuto.addEventListener('click', () => setRunMode(true));
-modeManual.addEventListener('click', () => setRunMode(false));
-paramsToggle.addEventListener('click', () => {
-  const open = paramsPanel.hidden;
-  paramsPanel.hidden = !open;
-  paramsToggle.setAttribute('aria-expanded', String(open));
-});
-paramsReset.addEventListener('click', () => {
-  options = { ...DEFAULT_OPTIONS };
+async function start(): Promise<void> {
+  void loadBuildInfo();
+  const catalog = await loadCompletionCatalog();
+  editor = createEditor(byId('editor'), initialIR, onEditorChange, catalog);
+
+  setupSplitter(splitElement, splitter, editorPane);
   applyOptionsToForm(options);
-  saveOptions();
-  scheduleRun(0);
-});
-sampleHello.addEventListener('click', () => loadSample(HELLO_IR));
-sampleUb.addEventListener('click', () => loadSample(UB_IR));
+  applyRunMode(autoRun);
+  updateEditorMeta(initialIR);
+  renderEmpty();
+  if (autoRun) scheduleRun(0);
+  else runNow();
 
-for (const input of Object.values(optionInputs)) {
-  input.addEventListener('input', onOptionsChanged);
-  input.addEventListener('change', onOptionsChanged);
-}
+  runButton.addEventListener('click', () => runNow());
+  modeAuto.addEventListener('click', () => setRunMode(true));
+  modeManual.addEventListener('click', () => setRunMode(false));
+  paramsToggle.addEventListener('click', () => {
+    const open = paramsPanel.hidden;
+    paramsPanel.hidden = !open;
+    paramsToggle.setAttribute('aria-expanded', String(open));
+  });
+  paramsReset.addEventListener('click', () => {
+    options = { ...DEFAULT_OPTIONS };
+    applyOptionsToForm(options);
+    saveOptions();
+    scheduleRun(0);
+  });
+  sampleHello.addEventListener('click', () => loadSample(HELLO_IR));
+  sampleUb.addEventListener('click', () => loadSample(UB_IR));
 
-document.addEventListener('keydown', (event) => {
-  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-    event.preventDefault();
-    runNow();
+  for (const input of Object.values(optionInputs)) {
+    input.addEventListener('input', onOptionsChanged);
+    input.addEventListener('change', onOptionsChanged);
   }
-});
+
+  document.addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      runNow();
+    }
+  });
+}
 
 function setRunMode(auto: boolean): void {
   if (auto === autoRun) return;
@@ -461,6 +470,27 @@ function element<K extends keyof HTMLElementTagNameMap>(
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
   return node;
+}
+
+async function loadCompletionCatalog(): Promise<CompletionCatalog> {
+  try {
+    const response = await fetch(
+      new URL('completions.json', document.baseURI),
+      { cache: 'no-cache' },
+    );
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return (await response.json()) as CompletionCatalog;
+  } catch (error) {
+    console.warn('completion catalog is unavailable', error);
+    return {
+      keywords: [],
+      instructions: [],
+      types: [],
+      attributes: [],
+      intrinsics: [],
+      libcalls: [],
+    };
+  }
 }
 
 async function loadBuildInfo(): Promise<void> {
