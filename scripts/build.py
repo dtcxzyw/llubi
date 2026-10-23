@@ -259,6 +259,19 @@ def generate_completions(llvm_source: Path, build_dir: Path) -> None:
     )
 
 
+def generate_examples(llvm_source: Path) -> None:
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "gen_examples.py"),
+            "--llvm-source",
+            str(llvm_source),
+            "--output",
+            str(WEB_PUBLIC / "examples.json"),
+        ]
+    )
+
+
 def emscripten_version() -> str:
     try:
         output = subprocess.check_output(
@@ -376,6 +389,7 @@ def main() -> None:
     )
 
     generate_completions(llvm_source, build_dir)
+    generate_examples(llvm_source)
     if not args.no_copy:
         stage_artifacts(build_dir)
     write_build_info(llvm_source, build_dir)

@@ -14,7 +14,8 @@ test('highlights the runtime error line and lists the stack frame', async ({
 }) => {
   await page.goto('./');
   await expect(page.locator('#status')).toHaveClass(/status-ok/);
-  await page.getByRole('button', { name: 'UB example' }).click();
+  await page.getByRole('button', { name: 'Examples' }).click();
+  await page.getByRole('button', { name: 'UB: free out of bounds' }).click();
   await expect(page.locator('#status')).toHaveClass(/status-error/);
   await expect(page.locator('#output')).toContainText('freeing a pointer');
   await expect(page.locator('.cm-error-line')).toHaveCount(1);
@@ -379,4 +380,42 @@ test('restores the copy label after feedback', async ({ page, context }) => {
   await expect(copyButton).toHaveText('copied');
   await page.locator('#run-command').click();
   await expect(copyButton).toHaveText('copy', { timeout: 5000 });
+});
+
+test('opens the examples panel with built-ins first and generated tests', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Examples' }).click();
+  await expect(page.locator('#examples-panel')).toHaveClass(/is-open/);
+  await expect(
+    page.locator('#examples-builtin .example-item').first(),
+  ).toHaveText('Hello world');
+  await expect(
+    page.locator('#examples-builtin .example-item').nth(1),
+  ).toHaveText('UB: free out of bounds');
+  await expect
+    .poll(
+      async () => page.locator('#examples-tests .example-item').count(),
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(100);
+
+  await page.locator('#examples-filter').fill('deterministic');
+  await expect(page.locator('#examples-builtin .example-item')).toHaveCount(0);
+  await expect(
+    page.locator('#examples-tests .example-item').filter({
+      hasText: 'deterministic',
+    }),
+  ).toHaveCount(1);
+  await page
+    .locator('#examples-tests .example-item')
+    .filter({ hasText: 'deterministic' })
+    .click();
+  await expect(page.locator('#examples-panel')).not.toHaveClass(/is-open/);
+  await page.getByRole('button', { name: 'Parameters' }).click();
+  await expect(page.locator('#opt-deterministic')).toBeChecked();
+  await expect(page.locator('.cm-content')).not.toContainText('CHECK-NEXT');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
 });

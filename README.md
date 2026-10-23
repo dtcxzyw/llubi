@@ -64,6 +64,9 @@ used automatically when available.
 - Verbose trace rows jump to their instruction, call site, function, or label in
   the editor; clicking a source line or line number jumps back to the matching
   trace row.
+- The Examples drawer lists two built-in samples first and then every `.ll` test
+  from `llvm/test/tools/llubi`, with check lines stripped and the first RUN line
+  parsed into playground options when possible.
 - The output pane separates program output from interpreter diagnostics and
   trace with a draggable horizontal divider that starts at 1/6 and 5/6.
 - The toolbar shows the equivalent `; RUN:` line for the last run and copies it

@@ -64,8 +64,15 @@
         <button id="params-toggle" class="secondary" type="button" aria-expanded="false">
           Parameters
         </button>
-        <button id="sample-hello" class="secondary" type="button">Hello</button>
-        <button id="sample-ub" class="secondary" type="button">UB example</button>
+        <button
+          id="examples-toggle"
+          class="secondary"
+          type="button"
+          aria-expanded="false"
+          aria-controls="examples-panel"
+        >
+          Examples
+        </button>
       </section>
 
       <section id="params" class="params" hidden aria-label="llubi parameters">
@@ -190,6 +197,44 @@
             <span id="editor-meta" class="pane-meta"></span>
           </div>
           <div id="editor" class="editor-host"></div>
+          <aside
+            id="examples-panel"
+            class="examples-panel"
+            aria-label="LLVM IR examples"
+            aria-hidden="true"
+            inert
+          >
+            <div class="examples-head">
+              <span class="params-title">Examples</span>
+              <button
+                id="examples-close"
+                class="copy-button"
+                type="button"
+                aria-label="Close examples"
+              >
+                close
+              </button>
+            </div>
+            <input
+              id="examples-filter"
+              class="examples-filter"
+              type="search"
+              placeholder="Filter examples"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <div class="examples-body">
+              <div id="examples-builtin-title" class="examples-group-title">
+                Built-in examples
+              </div>
+              <ul id="examples-builtin" class="examples-list"></ul>
+              <div id="examples-tests-title" class="examples-group-title">
+                llubi tests
+              </div>
+              <ul id="examples-tests" class="examples-list"></ul>
+              <p id="examples-empty" class="empty" hidden>No matching examples.</p>
+            </div>
+          </aside>
         </section>
         <div
           id="splitter"

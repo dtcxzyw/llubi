@@ -114,6 +114,17 @@ export interface CompletionCatalog {
   libcalls: string[];
 }
 
+export interface ExampleEntry {
+  name: string;
+  ir: string;
+  options?: Partial<RunOptions>;
+  run?: string;
+}
+
+export interface ExampleCatalog {
+  examples: ExampleEntry[];
+}
+
 export interface BuildInfo {
   llvmVersion: string;
   llvmCommit: string;

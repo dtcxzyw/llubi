@@ -5,6 +5,8 @@ import type {
   BuildInfo,
   CompletionCatalog,
   Diagnostic,
+  ExampleCatalog,
+  ExampleEntry,
   RunOptions,
   RunResult,
   TraceEntry,
@@ -30,8 +32,15 @@ const entryInput = byId<HTMLInputElement>('opt-entry');
 const entryCombo = byId<HTMLElement>('entry-combo');
 const entryToggle = byId<HTMLButtonElement>('entry-toggle');
 const entryMenu = byId<HTMLUListElement>('entry-menu');
-const sampleHello = byId<HTMLButtonElement>('sample-hello');
-const sampleUb = byId<HTMLButtonElement>('sample-ub');
+const examplesToggle = byId<HTMLButtonElement>('examples-toggle');
+const examplesPanel = byId<HTMLElement>('examples-panel');
+const examplesClose = byId<HTMLButtonElement>('examples-close');
+const examplesFilter = byId<HTMLInputElement>('examples-filter');
+const examplesBuiltin = byId<HTMLUListElement>('examples-builtin');
+const examplesTests = byId<HTMLUListElement>('examples-tests');
+const examplesBuiltinTitle = byId<HTMLElement>('examples-builtin-title');
+const examplesTestsTitle = byId<HTMLElement>('examples-tests-title');
+const examplesEmpty = byId<HTMLElement>('examples-empty');
 const outputElement = byId<HTMLElement>('output');
 const printOutput = byId<HTMLElement>('print-output');
 const otherOutput = byId<HTMLElement>('other-output');
@@ -78,7 +87,13 @@ let entryActiveIndex = -1;
 let entryMenuOpen = false;
 let activeRunOptions: RunOptions | null = null;
 let lastCheckLines = '';
+let testExamples: ExampleEntry[] = [];
 const copyFeedbackTimers = new WeakMap<HTMLButtonElement, number>();
+
+const BUILTIN_EXAMPLES: ExampleEntry[] = [
+  { name: 'Hello world', ir: HELLO_IR },
+  { name: 'UB: free out of bounds', ir: UB_IR },
+];
 
 const initialIR = localStorage.getItem(STORAGE_IR) ?? HELLO_IR;
 let editor: EditorController;
@@ -87,6 +102,7 @@ void start();
 
 async function start(): Promise<void> {
   void loadBuildInfo();
+  void loadExamples();
   const catalog = await loadCompletionCatalog();
   editor = createEditor(
     byId('editor'),
@@ -122,8 +138,20 @@ async function start(): Promise<void> {
     saveOptions();
     scheduleRun(0);
   });
-  sampleHello.addEventListener('click', () => loadSample(HELLO_IR));
-  sampleUb.addEventListener('click', () => loadSample(UB_IR));
+  examplesToggle.addEventListener('click', toggleExamplesPanel);
+  examplesClose.addEventListener('click', () => closeExamplesPanel(true));
+  examplesFilter.addEventListener('input', renderExamples);
+  document.addEventListener('pointerdown', (event) => {
+    if (!examplesPanel.classList.contains('is-open')) return;
+    const target = event.target as Node;
+    if (examplesPanel.contains(target) || examplesToggle.contains(target))
+      return;
+    closeExamplesPanel(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && examplesPanel.classList.contains('is-open'))
+      closeExamplesPanel(true);
+  });
   copyRunButton.addEventListener('click', () =>
     copyText(runCommandElement.textContent ?? '', copyRunButton),
   );
@@ -369,10 +397,80 @@ function chooseEntryFunction(name: string): void {
   onOptionsChanged();
 }
 
-function loadSample(value: string): void {
-  editor.setValue(value);
+function loadExample(example: ExampleEntry): void {
+  options = { ...DEFAULT_OPTIONS, ...(example.options ?? {}), verbose: true };
+  applyOptionsToForm(options);
+  saveOptions();
+  editor.setValue(example.ir);
   editor.clearDiagnostics();
+  closeExamplesPanel(false);
   scheduleRun(0);
+}
+
+function toggleExamplesPanel(): void {
+  if (examplesPanel.classList.contains('is-open')) closeExamplesPanel(true);
+  else openExamplesPanel();
+}
+
+function openExamplesPanel(): void {
+  examplesPanel.classList.add('is-open');
+  examplesPanel.setAttribute('aria-hidden', 'false');
+  examplesPanel.removeAttribute('inert');
+  examplesToggle.setAttribute('aria-expanded', 'true');
+  renderExamples();
+  examplesFilter.focus();
+}
+
+function closeExamplesPanel(restoreFocus: boolean): void {
+  if (!examplesPanel.classList.contains('is-open')) return;
+  examplesPanel.classList.remove('is-open');
+  examplesPanel.setAttribute('aria-hidden', 'true');
+  examplesPanel.setAttribute('inert', '');
+  examplesToggle.setAttribute('aria-expanded', 'false');
+  if (restoreFocus) examplesToggle.focus();
+}
+
+function renderExamples(): void {
+  const query = examplesFilter.value.trim().toLowerCase();
+  const matches = (example: ExampleEntry) =>
+    !query || example.name.toLowerCase().includes(query);
+  const builtins = BUILTIN_EXAMPLES.filter(matches);
+  const tests = testExamples.filter(matches);
+
+  examplesBuiltin.replaceChildren(
+    ...builtins.map((example) => createExampleItem(example)),
+  );
+  examplesTests.replaceChildren(
+    ...tests.map((example) => createExampleItem(example)),
+  );
+  examplesBuiltinTitle.hidden = builtins.length === 0;
+  examplesTestsTitle.hidden = tests.length === 0;
+  examplesEmpty.hidden = builtins.length + tests.length > 0;
+}
+
+function createExampleItem(example: ExampleEntry): HTMLLIElement {
+  const item = document.createElement('li');
+  const button = element('button', 'example-item', example.name);
+  button.type = 'button';
+  button.title = example.run ? `; RUN: ${example.run}` : example.name;
+  button.addEventListener('click', () => loadExample(example));
+  item.append(button);
+  return item;
+}
+
+async function loadExamples(): Promise<void> {
+  try {
+    const response = await fetch(new URL('examples.json', document.baseURI), {
+      cache: 'no-cache',
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const catalog = (await response.json()) as ExampleCatalog;
+    testExamples = catalog.examples ?? [];
+    examplesTestsTitle.textContent = `llubi tests (${testExamples.length})`;
+    if (examplesPanel.classList.contains('is-open')) renderExamples();
+  } catch (error) {
+    console.warn('example catalog is unavailable', error);
+  }
 }
 
 function scheduleRun(delay = 500): void {
