@@ -87,6 +87,8 @@ let entryMatches: string[] = [];
 let entryActiveIndex = -1;
 let entryMenuOpen = false;
 let activeRunOptions: RunOptions | null = null;
+let inputVersion = 0;
+let activeRunVersion = 0;
 let lastCheckLines = '';
 let testExamples: ExampleEntry[] = [];
 const copyFeedbackTimers = new WeakMap<HTMLButtonElement, number>();
@@ -137,6 +139,8 @@ async function start(): Promise<void> {
     options = { ...DEFAULT_OPTIONS };
     applyOptionsToForm(options);
     saveOptions();
+    inputVersion += 1;
+    setCheckLines('');
     scheduleRun(0);
   });
   examplesToggle.addEventListener('click', toggleExamplesPanel);
@@ -168,7 +172,6 @@ async function start(): Promise<void> {
 
   for (const input of Object.values(optionInputs)) {
     input.addEventListener('input', onOptionsChanged);
-    input.addEventListener('change', onOptionsChanged);
   }
 
   entryInput.addEventListener('focus', () => openEntryMenu(''));
@@ -287,6 +290,8 @@ function applyOptionsToForm(value: RunOptions): void {
 function onOptionsChanged(): void {
   options = readOptionsFromForm();
   saveOptions();
+  inputVersion += 1;
+  setCheckLines('');
   scheduleRun();
 }
 
@@ -294,6 +299,8 @@ function onEditorChange(value: string): void {
   localStorage.setItem(STORAGE_IR, value);
   updateEditorMeta(value);
   updateEntryFunctions(value);
+  inputVersion += 1;
+  setCheckLines('');
   queueMicrotask(() => editor.clearDiagnostics());
   if (autoRun) scheduleRun();
   else setStatus('modified', 'dirty');
@@ -407,6 +414,8 @@ function loadExample(example: ExampleEntry): void {
   saveOptions();
   editor.setValue(example.ir);
   editor.clearDiagnostics();
+  inputVersion += 1;
+  setCheckLines('');
   scheduleRun(0);
 }
 
@@ -502,6 +511,7 @@ function runNow(): void {
   };
   options = request.options;
   activeRunOptions = request.options;
+  activeRunVersion = inputVersion;
   updateRunCommand(activeRunOptions, null);
   saveOptions();
 
@@ -541,6 +551,10 @@ function handleWorkerMessage(message: WorkerResponse): void {
   if (message.id !== activeId) return;
   window.clearTimeout(runTimeout);
   busy = false;
+  if (activeRunVersion !== inputVersion) {
+    if (message.error) destroyWorker();
+    return;
+  }
   if (message.error) {
     destroyWorker();
     renderFatal(message.error);
@@ -649,6 +663,7 @@ function updateRunCommand(
 }
 
 function buildCheckLines(result: RunResult, runOptions: RunOptions): string {
+  if (result.trace.length === 0) return '';
   const lines: string[] = [];
   for (const entry of result.trace) lines.push(...entry.text.split('\n'));
 

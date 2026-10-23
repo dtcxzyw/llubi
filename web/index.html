@@ -64,15 +64,6 @@
         <button id="params-toggle" class="secondary" type="button" aria-expanded="false">
           Parameters
         </button>
-        <button
-          id="examples-toggle"
-          class="secondary"
-          type="button"
-          aria-expanded="false"
-          aria-controls="examples-panel"
-        >
-          Examples
-        </button>
       </section>
 
       <section id="params" class="params" hidden aria-label="llubi parameters">
@@ -193,7 +184,18 @@
       <main id="split" class="split">
         <section class="pane editor-pane" aria-label="LLVM IR editor">
           <div class="pane-header">
-            <span>LLVM IR</span>
+            <span class="pane-title-group">
+              <span>LLVM IR</span>
+              <button
+                id="examples-toggle"
+                class="pane-action"
+                type="button"
+                aria-expanded="false"
+                aria-controls="examples-panel"
+              >
+                Examples
+              </button>
+            </span>
             <span id="editor-meta" class="pane-meta"></span>
           </div>
           <div class="editor-body">
@@ -219,6 +221,7 @@
               id="examples-filter"
               class="examples-filter"
               type="search"
+              aria-label="Filter examples"
               placeholder="Filter examples"
               autocomplete="off"
               spellcheck="false"

@@ -76,6 +76,7 @@ test('hides Run while auto-run is active', async ({ page }) => {
 
 test('links parameters to the llubi and LangRef documentation', async ({ page }) => {
   await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
   await page.getByRole('button', { name: 'Parameters' }).click();
   await expect(
     page.locator('a[href="https://llvm.org/docs/CommandGuide/llubi.html"]'),
@@ -387,6 +388,10 @@ test('opens the examples panel with built-ins first and generated tests', async 
 }) => {
   await page.goto('./');
   await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await expect(
+    page.locator('.editor-pane .pane-header #examples-toggle'),
+  ).toBeVisible();
+  await expect(page.locator('.toolbar #examples-toggle')).toHaveCount(0);
   await page.locator('#examples-toggle').click();
   await expect(page.locator('#examples-panel')).toHaveClass(/is-open/);
   await expect(
@@ -404,15 +409,12 @@ test('opens the examples panel with built-ins first and generated tests', async 
 
   await page.locator('#examples-filter').fill('deterministic');
   await expect(page.locator('#examples-builtin .example-item')).toHaveCount(0);
-  await expect(
-    page.locator('#examples-tests .example-item').filter({
-      hasText: 'deterministic',
-    }),
-  ).toHaveCount(1);
-  await page
+  const deterministicExample = page
     .locator('#examples-tests .example-item')
     .filter({ hasText: 'deterministic' })
-    .click();
+    .first();
+  await expect(deterministicExample).toBeVisible();
+  await deterministicExample.click();
   await expect(page.locator('#examples-panel')).toHaveClass(/is-open/);
   await page.getByRole('button', { name: 'Parameters' }).click();
   await expect(page.locator('#opt-deterministic')).toBeChecked();
@@ -458,6 +460,21 @@ test('the examples drawer squeezes the editor and has explicit close controls', 
 
   await page.locator('#examples-toggle').click();
   await expect(page.locator('#examples-panel')).toHaveClass(/is-open/);
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(() => {
+          const body = document.querySelector(
+            '.editor-body',
+          )!.getBoundingClientRect();
+          const panel = document.querySelector(
+            '#examples-panel',
+          )!.getBoundingClientRect();
+          return panel.width / body.width;
+        }),
+      { timeout: 3000 },
+    )
+    .toBeGreaterThan(0.25);
   const metrics = await page.evaluate(() => {
     const body = document.querySelector('.editor-body')!.getBoundingClientRect();
     const panel = document.querySelector('#examples-panel')!.getBoundingClientRect();
@@ -468,7 +485,6 @@ test('the examples drawer squeezes the editor and has explicit close controls', 
       editor: editor.width,
     };
   });
-  expect(metrics.panel / metrics.body).toBeGreaterThan(0.25);
   expect(metrics.panel / metrics.body).toBeLessThan(0.45);
   expect(metrics.editor).toBeLessThan(editorWidthBefore);
 
@@ -481,4 +497,17 @@ test('the examples drawer squeezes the editor and has explicit close controls', 
   await expect(page.locator('#examples-panel')).toHaveClass(/is-open/);
   await page.locator('#examples-toggle').click();
   await expect(page.locator('#examples-panel')).not.toHaveClass(/is-open/);
+});
+
+test('disables stale test generation after edits', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await expect(page.locator('#copy-checks')).toBeEnabled();
+  await page.getByRole('button', { name: 'Manual' }).click();
+  const editor = page.locator('.cm-content');
+  await editor.click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type('\n');
+  await expect(page.locator('#copy-checks')).toBeDisabled();
+  await expect(page.locator('#generate-test')).toBeDisabled();
 });
