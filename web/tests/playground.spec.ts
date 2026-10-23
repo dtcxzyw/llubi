@@ -515,7 +515,7 @@ test('disables stale test generation after edits', async ({ page }) => {
   await expect(page.locator('#generate-test')).toBeDisabled();
 });
 
-test('shows unsupported instructions directly without a stack list', async ({
+test('shows unsupported instructions directly with a stack frame', async ({
   page,
 }) => {
   await page.goto('./');
@@ -532,5 +532,8 @@ test('shows unsupported instructions directly without a stack list', async ({
   await expect(page.locator('#output')).toContainText(
     'Unrecognized instruction:   %res = call i32 @unknown()',
   );
-  await expect(page.locator('#output .stack')).toHaveCount(0);
+  await expect(page.locator('#output .stack')).toHaveCount(1);
+  await expect(page.locator('.stack-instruction')).toContainText(
+    '%res = call i32 @unknown()',
+  );
 });

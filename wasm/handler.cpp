@@ -141,6 +141,7 @@ void WebEventHandler::onUnrecognizedInstruction(llvm::Instruction &I) {
   Issue.Message = "Unrecognized instruction: " + Frame.Instruction;
   Issue.Line = Frame.Line;
   Issue.Column = Frame.Column;
+  Issue.Frames.push_back(std::move(Frame));
   Issues.push_back(std::move(Issue));
 }
 
