@@ -242,3 +242,14 @@ done:
     /is-active/,
   );
 });
+
+test('shows exit status and duration in the output header only', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await expect(page.locator('.toolbar #status')).toHaveCount(0);
+  await expect(page.locator('.pane-header #status')).toContainText('returned 0');
+  await expect(page.locator('.pane-header #output-meta')).toContainText('ms');
+  await expect(page.locator('#output .result-summary')).toHaveCount(0);
+});

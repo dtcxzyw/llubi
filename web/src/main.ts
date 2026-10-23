@@ -370,7 +370,7 @@ function runNow(): void {
   if (busy) destroyWorker();
   busy = true;
   setStatus('running...', 'running');
-  outputMeta.textContent = 'running';
+  outputMeta.textContent = '';
 
   const request: WorkerRequest = {
     id,
@@ -447,6 +447,7 @@ function setStatus(text: string, kind: 'idle' | 'running' | 'ok' | 'warn' | 'err
 }
 
 function renderEmpty(): void {
+  outputMeta.textContent = '';
   outputElement.replaceChildren(
     element('p', 'empty', 'Edit the IR or press Run. Output appears here.'),
   );
@@ -465,12 +466,14 @@ function renderFatal(message: string): void {
     ),
   );
   outputElement.replaceChildren(box);
-  outputMeta.textContent = 'internal error';
+  outputMeta.textContent = '';
 }
 
 function renderResult(result: RunResult): void {
   editor.setDiagnostics(result.diagnostics);
-  outputMeta.textContent = `${result.durationMs} ms`;
+  outputMeta.textContent = `${result.durationMs} ms${
+    result.truncated ? ' · truncated' : ''
+  }`;
 
   const failed = !result.ok || result.exit.kind === 'failed';
   const warning =
@@ -485,16 +488,6 @@ function renderResult(result: RunResult): void {
   );
 
   const root = element('div', 'result');
-  const summary = element('div', 'result-summary');
-  const badge = element(
-    'span',
-    `badge ${failed ? 'badge-error' : warning ? 'badge-warn' : 'badge-ok'}`,
-    `${result.exit.kind} ${result.exit.code}`,
-  );
-  summary.append(badge, element('span', 'muted', `${result.durationMs} ms`));
-  if (result.truncated)
-    summary.append(element('span', 'badge badge-warn', 'output truncated'));
-  root.append(summary);
 
   if (result.diagnostics.length > 0) {
     const diagnostics = element('section', 'block');

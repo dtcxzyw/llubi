@@ -52,7 +52,6 @@
         <button id="run" class="primary" type="button" hidden title="Run (Ctrl/Cmd+Enter)">
           Run
         </button>
-        <span id="status" class="status" role="status">starting...</span>
         <span class="spacer"></span>
         <button id="params-toggle" class="secondary" type="button" aria-expanded="false">
           Parameters
@@ -195,7 +194,10 @@
         <section class="pane output-pane" aria-label="Execution output">
           <div class="pane-header">
             <span>Output</span>
-            <span id="output-meta" class="pane-meta"></span>
+            <span class="pane-status">
+              <span id="status" class="status" role="status">starting...</span>
+              <span id="output-meta" class="pane-meta"></span>
+            </span>
           </div>
           <div id="output" class="output" aria-live="polite"></div>
         </section>
