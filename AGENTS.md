@@ -128,7 +128,9 @@ npm run smoke      # headless wasm API test (build wasm first)
   (with an optional `llvm_ref` input);
 - uses GitHub-hosted `ubuntu-latest` runners;
 - caches the pinned Node/emsdk toolchain, ccache objects, npm downloads, and
-  Playwright browsers;
+  Playwright browsers. Toolchain, npm, and Playwright keys are content-addressed;
+  ccache uses a rolling per-run key with a restore prefix so daily LLVM updates
+  can persist newly compiled objects;
 - runs the Node wasm smoke test and browser tests before deploying;
 - deploys with `actions/deploy-pages`; a failed daily build leaves the previous
   deployment online.
