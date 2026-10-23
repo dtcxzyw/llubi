@@ -62,6 +62,18 @@
       </section>
 
       <section id="params" class="params" hidden aria-label="llubi parameters">
+        <div class="params-head">
+          <span class="params-title">llubi parameters</span>
+          <a
+            class="doc-link"
+            href="https://llvm.org/docs/CommandGuide/llubi.html"
+            target="_blank"
+            rel="noreferrer"
+            title="Open the llubi command guide"
+          >
+            llubi command guide
+          </a>
+        </div>
         <div class="params-grid">
           <label>
             <span>Entry function</span>
@@ -103,7 +115,18 @@
             </select>
           </label>
           <label>
-            <span>NaN behavior</span>
+            <span class="field-label">
+              <span>NaN behavior</span>
+              <a
+                class="doc-link inline"
+                href="https://llvm.org/docs/LangRef.html#floatnan"
+                target="_blank"
+                rel="noreferrer"
+                title="Open the LLVM LangRef section on NaN behavior"
+              >
+                LangRef
+              </a>
+            </span>
             <select id="opt-nan">
               <option value="nondet">nondet</option>
               <option value="preferred">preferred</option>

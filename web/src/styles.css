@@ -304,6 +304,49 @@ button:disabled {
   display: none;
 }
 
+.params-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.params-title {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.doc-link {
+  color: var(--accent);
+  font-size: 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.doc-link:hover {
+  text-decoration: underline;
+}
+
+.doc-link.inline {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.doc-link.inline:hover {
+  color: var(--accent);
+}
+
+.field-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .params-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

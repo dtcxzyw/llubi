@@ -72,3 +72,14 @@ test('hides Run while auto-run is active', async ({ page }) => {
   await page.getByRole('button', { name: 'Auto' }).click();
   await expect(page.getByRole('button', { name: 'Run' })).toBeHidden();
 });
+
+test('links parameters to the llubi and LangRef documentation', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: 'Parameters' }).click();
+  await expect(
+    page.locator('a[href="https://llvm.org/docs/CommandGuide/llubi.html"]'),
+  ).toBeVisible();
+  await expect(
+    page.locator('a[href="https://llvm.org/docs/LangRef.html#floatnan"]'),
+  ).toBeVisible();
+});
