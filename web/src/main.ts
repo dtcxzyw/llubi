@@ -759,9 +759,19 @@ function extractAssertion(message: string): string | null {
   return assertion || null;
 }
 
+function stripAssertionLocation(assertion: string): string {
+  return assertion
+    .replace(/,\s*at:\s*.*$/i, '')
+    .replace(/,\s*file\s+.*?,\s*line\s+\d+.*$/i, '')
+    .trim();
+}
+
 function buildReportTitle(): string {
   if (lastRunCrash) {
-    return `[llubi] ${extractAssertion(lastRunCrash) ?? 'Crash: TODO'}`;
+    const assertion = extractAssertion(lastRunCrash);
+    return `[llubi] ${
+      assertion ? stripAssertionLocation(assertion) : 'Crash: TODO'
+    }`;
   }
   const unsupported = lastRunResult?.diagnostics.find(
     (diagnostic) => diagnostic.kind === 'unsupported',
