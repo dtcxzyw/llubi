@@ -354,7 +354,12 @@ function renderResult(result: RunResult): void {
   }
 
   if (result.trace) {
-    root.append(collapsible('Verbose trace', result.trace, true));
+    const trace = element('section', 'block');
+    trace.append(
+      element('h2', 'block-title', 'Verbose trace'),
+      element('pre', 'output-text', result.trace),
+    );
+    root.append(trace);
   }
   if (result.stderr) {
     root.append(collapsible('Interpreter stderr', result.stderr));
@@ -427,14 +432,9 @@ function renderDiagnostic(diagnostic: Diagnostic): HTMLElement {
   return article;
 }
 
-function collapsible(
-  title: string,
-  text: string,
-  open = false,
-): HTMLDetailsElement {
+function collapsible(title: string, text: string): HTMLDetailsElement {
   const details = document.createElement('details');
   details.className = 'block collapsible';
-  details.open = open;
   const summary = document.createElement('summary');
   summary.textContent = title;
   details.append(summary, element('pre', 'output-text', text));
