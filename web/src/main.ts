@@ -18,7 +18,8 @@ const STORAGE_OPTIONS = 'llubi.options';
 const STORAGE_AUTO_RUN = 'llubi.auto-run';
 
 const runButton = byId<HTMLButtonElement>('run');
-const autoRunInput = byId<HTMLInputElement>('auto-run');
+const modeAuto = byId<HTMLButtonElement>('mode-auto');
+const modeManual = byId<HTMLButtonElement>('mode-manual');
 const statusElement = byId<HTMLElement>('status');
 const paramsToggle = byId<HTMLButtonElement>('params-toggle');
 const paramsPanel = byId<HTMLElement>('params');
@@ -64,7 +65,7 @@ const editor = createEditor(byId('editor'), initialIR, onEditorChange);
 
 setupSplitter(splitElement, splitter, leftPane);
 applyOptionsToForm(options);
-autoRunInput.checked = autoRun;
+applyRunMode(autoRun);
 updateEditorMeta(initialIR);
 renderEmpty();
 void loadBuildInfo();
@@ -72,11 +73,8 @@ if (autoRun) scheduleRun(0);
 else runNow();
 
 runButton.addEventListener('click', () => runNow());
-autoRunInput.addEventListener('change', () => {
-  autoRun = autoRunInput.checked;
-  localStorage.setItem(STORAGE_AUTO_RUN, String(autoRun));
-  if (autoRun) scheduleRun();
-});
+modeAuto.addEventListener('click', () => setRunMode(true));
+modeManual.addEventListener('click', () => setRunMode(false));
 paramsToggle.addEventListener('click', () => {
   const open = paramsPanel.hidden;
   paramsPanel.hidden = !open;
@@ -102,6 +100,22 @@ document.addEventListener('keydown', (event) => {
     runNow();
   }
 });
+
+function setRunMode(auto: boolean): void {
+  if (auto === autoRun) return;
+  autoRun = auto;
+  localStorage.setItem(STORAGE_AUTO_RUN, String(autoRun));
+  applyRunMode(autoRun);
+  window.clearTimeout(scheduled);
+  scheduled = undefined;
+  if (autoRun) scheduleRun(0);
+}
+
+function applyRunMode(auto: boolean): void {
+  modeAuto.setAttribute('aria-pressed', String(auto));
+  modeManual.setAttribute('aria-pressed', String(!auto));
+  runButton.hidden = auto;
+}
 
 function byId<T extends HTMLElement = HTMLElement>(id: string): T {
   const element = document.getElementById(id);

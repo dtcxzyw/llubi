@@ -52,6 +52,8 @@ used automatically when available.
 ## Web app
 
 - Vite + TypeScript, CodeMirror 6 for the IR editor and diagnostics.
+- Auto/Manual mode switch: Auto hides the Run button and reruns after edits;
+  Manual exposes an explicit Run action. Ctrl/Cmd+Enter always runs.
 - Execution happens in a Web Worker; a new edit supersedes an in-flight run,
   and long runs are killed after 10 seconds.
 - Interpreter output is structured JSON. Runtime errors get source lines by

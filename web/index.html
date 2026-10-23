@@ -26,11 +26,32 @@
       </header>
 
       <section class="toolbar" aria-label="Execution controls">
-        <button id="run" class="primary" type="button">Run</button>
-        <label class="check">
-          <input id="auto-run" type="checkbox" checked />
-          Auto-run
-        </label>
+        <div
+          class="mode-switch"
+          role="group"
+          aria-label="Run mode"
+          title="Auto-run executes after edits stop; Ctrl/Cmd+Enter always runs immediately."
+        >
+          <button
+            id="mode-auto"
+            class="mode-option"
+            type="button"
+            aria-pressed="true"
+          >
+            Auto
+          </button>
+          <button
+            id="mode-manual"
+            class="mode-option"
+            type="button"
+            aria-pressed="false"
+          >
+            Manual
+          </button>
+        </div>
+        <button id="run" class="primary" type="button" hidden title="Run (Ctrl/Cmd+Enter)">
+          Run
+        </button>
         <span id="status" class="status" role="status">starting...</span>
         <span class="spacer"></span>
         <button id="params-toggle" class="secondary" type="button" aria-expanded="false">

@@ -62,3 +62,13 @@ test('fills the viewport and starts with centered panes', async ({ page }) => {
   expect(Math.abs(metrics.bottom - metrics.viewport)).toBeLessThanOrEqual(1);
   expect(Math.abs(metrics.left - metrics.right)).toBeLessThanOrEqual(8);
 });
+
+test('hides Run while auto-run is active', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await expect(page.getByRole('button', { name: 'Run' })).toBeHidden();
+  await page.getByRole('button', { name: 'Manual' }).click();
+  await expect(page.getByRole('button', { name: 'Run' })).toBeVisible();
+  await page.getByRole('button', { name: 'Auto' }).click();
+  await expect(page.getByRole('button', { name: 'Run' })).toBeHidden();
+});

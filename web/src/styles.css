@@ -181,6 +181,45 @@ button {
   flex: 1;
 }
 
+[hidden] {
+  display: none !important;
+}
+
+.mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+}
+
+.mode-option {
+  border: 0;
+  border-radius: 999px;
+  padding: 4px 11px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.mode-option:hover {
+  color: var(--text);
+}
+
+.mode-option[aria-pressed='true'] {
+  background: var(--accent);
+  color: #08101d;
+}
+
+.mode-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 button.primary,
 button.secondary {
   border: 1px solid var(--border-strong);
