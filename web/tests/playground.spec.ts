@@ -34,6 +34,66 @@ test('applies interpreter parameters', async ({ page }) => {
   );
 });
 
+test('scales numeric parameters with arrow keys', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Parameters' }).click();
+  await page.getByRole('button', { name: 'Manual' }).click();
+
+  const maxMem = page.locator('#opt-max-mem');
+  await maxMem.fill('3');
+  await maxMem.press('ArrowUp');
+  await expect(maxMem).toHaveValue('6');
+  await maxMem.press('ArrowUp');
+  await expect(maxMem).toHaveValue('12');
+  await maxMem.press('ArrowDown');
+  await expect(maxMem).toHaveValue('6');
+  await maxMem.fill('1500');
+  await maxMem.press('ArrowUp');
+  await expect(maxMem).toHaveValue('2047');
+  await maxMem.press('ArrowUp');
+  await expect(maxMem).toHaveValue('2047');
+
+  const maxSteps = page.locator('#opt-max-steps');
+  await maxSteps.fill('7');
+  await maxSteps.press('ArrowUp');
+  await expect(maxSteps).toHaveValue('70');
+  await maxSteps.press('ArrowDown');
+  await expect(maxSteps).toHaveValue('7');
+  await maxSteps.fill('1000000000');
+  await maxSteps.press('ArrowUp');
+  await expect(maxSteps).toHaveValue('4294967295');
+  await maxSteps.press('ArrowDown');
+  await expect(maxSteps).toHaveValue('429496729');
+
+  const maxStack = page.locator('#opt-max-stack');
+  await maxStack.fill('5');
+  await maxStack.press('ArrowUp');
+  await expect(maxStack).toHaveValue('10');
+  await maxStack.press('ArrowDown');
+  await expect(maxStack).toHaveValue('5');
+
+  const seed = page.locator('#opt-seed');
+  await seed.fill('3');
+  await seed.press('ArrowUp');
+  await expect(seed).toHaveValue('6');
+  await seed.press('ArrowDown');
+  await expect(seed).toHaveValue('3');
+
+  const vscale = page.locator('#opt-vscale');
+  await vscale.fill('5');
+  await vscale.press('ArrowUp');
+  await expect(vscale).toHaveValue('8');
+  await vscale.press('ArrowDown');
+  await expect(vscale).toHaveValue('4');
+  await vscale.fill('3');
+  await vscale.press('ArrowUp');
+  await expect(vscale).toHaveValue('4');
+  await vscale.fill('1');
+  await vscale.press('ArrowDown');
+  await expect(vscale).toHaveValue('1');
+});
+
 test('reports parse errors without running the program', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('#status')).toHaveClass(/status-ok/);

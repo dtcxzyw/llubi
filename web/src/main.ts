@@ -80,6 +80,55 @@ const optionInputs = {
   disableVerify: byId<HTMLInputElement>('opt-verify'),
 };
 
+interface NumericScale {
+  input: HTMLInputElement;
+  min: number;
+  max: number;
+  factor: number;
+  fallback: number;
+  powerOfTwo?: boolean;
+}
+
+const MAX_U32 = 4_294_967_295;
+const numericScales: NumericScale[] = [
+  {
+    input: optionInputs.maxMemMiB,
+    min: 1,
+    max: 2047,
+    factor: 2,
+    fallback: DEFAULT_OPTIONS.maxMemMiB,
+  },
+  {
+    input: optionInputs.maxSteps,
+    min: 0,
+    max: MAX_U32,
+    factor: 10,
+    fallback: DEFAULT_OPTIONS.maxSteps,
+  },
+  {
+    input: optionInputs.maxStackDepth,
+    min: 0,
+    max: MAX_U32,
+    factor: 2,
+    fallback: DEFAULT_OPTIONS.maxStackDepth,
+  },
+  {
+    input: optionInputs.vscale,
+    min: 1,
+    max: MAX_U32,
+    factor: 2,
+    fallback: DEFAULT_OPTIONS.vscale,
+    powerOfTwo: true,
+  },
+  {
+    input: optionInputs.seed,
+    min: 0,
+    max: MAX_U32,
+    factor: 2,
+    fallback: DEFAULT_OPTIONS.seed,
+  },
+];
+
 let options = loadOptions();
 let autoRun = localStorage.getItem(STORAGE_AUTO_RUN) !== 'false';
 let scheduled: number | undefined;
@@ -191,6 +240,7 @@ async function start(): Promise<void> {
   for (const input of Object.values(optionInputs)) {
     input.addEventListener('input', onOptionsChanged);
   }
+  setupNumericScaling();
 
   entryInput.addEventListener('focus', () => openEntryMenu(''));
   entryInput.addEventListener('click', () => openEntryMenu(''));
@@ -254,6 +304,44 @@ function loadOptions(): RunOptions {
 
 function saveOptions(): void {
   localStorage.setItem(STORAGE_OPTIONS, JSON.stringify(options));
+}
+
+function setupNumericScaling(): void {
+  for (const config of numericScales) {
+    config.input.addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+      event.preventDefault();
+      scaleNumericInput(config, event.key === 'ArrowUp' ? 1 : -1);
+    });
+  }
+}
+
+function scaleNumericInput(config: NumericScale, direction: 1 | -1): void {
+  const current = numberValue(
+    config.input,
+    config.min,
+    config.max,
+    config.fallback,
+  );
+  let next: number;
+  if (config.powerOfTwo) {
+    const maxPower = 2 ** Math.floor(Math.log2(config.max));
+    if (direction > 0) {
+      next = 2 ** (Math.floor(Math.log2(current)) + 1);
+    } else {
+      next = 2 ** Math.max(0, Math.ceil(Math.log2(current)) - 1);
+    }
+    next = Math.min(maxPower, Math.max(config.min, next));
+  } else if (direction > 0) {
+    next = current * config.factor;
+  } else {
+    next = Math.floor(current / config.factor);
+  }
+  next = Math.min(config.max, Math.max(config.min, Math.trunc(next)));
+  const value = String(next);
+  if (config.input.value === value) return;
+  config.input.value = value;
+  config.input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 function readOptionsFromForm(): RunOptions {
