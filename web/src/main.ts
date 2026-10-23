@@ -656,12 +656,7 @@ function renderResult(result: RunResult, runOptions: RunOptions): void {
   }
 
   if (result.trace.length > 0) {
-    const trace = element('section', 'block');
-    trace.append(
-      element('h2', 'block-title', 'Verbose trace'),
-      renderTrace(result.trace),
-    );
-    root.append(trace);
+    root.append(renderTrace(result.trace));
   }
   if (result.stderr) {
     const stderr = element('section', 'block');

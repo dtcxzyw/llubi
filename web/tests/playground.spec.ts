@@ -312,11 +312,11 @@ test('splits print output at one quarter height', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('#status')).toHaveClass(/status-ok/);
   await expect(page.locator('.print-section .output-section-header')).toHaveText(
-    'print',
+    'Program output',
   );
   await expect(
     page.locator('.other-section .output-section-header'),
-  ).toHaveText('other output');
+  ).toHaveText('Interpreter output');
 
   const metrics = await page.evaluate(() => {
     const split = document.querySelector('#output')!.getBoundingClientRect();
@@ -332,6 +332,7 @@ test('splits print output at one quarter height', async ({ page }) => {
   expect(metrics.print / metrics.total).toBeLessThan(0.3);
   expect(metrics.other / metrics.total).toBeGreaterThan(0.7);
   expect(metrics.other / metrics.total).toBeLessThan(0.8);
+  await expect(page.locator('#other-output')).not.toContainText('Verbose trace');
 
   const before = metrics.print;
   await page.locator('#output-resizer').focus();

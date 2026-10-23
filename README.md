@@ -64,8 +64,8 @@ used automatically when available.
 - Verbose trace rows jump to their instruction, call site, function, or label in
   the editor; clicking a source line or line number jumps back to the matching
   trace row.
-- The output pane separates `print` from diagnostics, trace, and stderr with a
-  draggable horizontal divider that starts at 25% / 75%.
+- The output pane separates program output from interpreter diagnostics and
+  trace with a draggable horizontal divider that starts at 25% / 75%.
 - The toolbar shows the equivalent `; RUN:` line for the last run and can copy
   it. The output header can copy generated FileCheck lines; stdout and stderr
   are combined in execution order like `update_llubi_test_checks.py`, and
