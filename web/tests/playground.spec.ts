@@ -44,3 +44,21 @@ test('reports parse errors without running the program', async ({ page }) => {
   await expect(page.locator('#output')).toContainText('parse');
   await expect(page.locator('.cm-error-line')).toHaveCount(1);
 });
+
+test('fills the viewport and starts with centered panes', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  const metrics = await page.evaluate(() => {
+    const split = document.querySelector('.split')!.getBoundingClientRect();
+    const left = document.querySelector('.editor-pane')!.getBoundingClientRect();
+    const right = document.querySelector('.output-pane')!.getBoundingClientRect();
+    return {
+      bottom: split.bottom,
+      viewport: window.innerHeight,
+      left: left.width,
+      right: right.width,
+    };
+  });
+  expect(Math.abs(metrics.bottom - metrics.viewport)).toBeLessThanOrEqual(1);
+  expect(Math.abs(metrics.left - metrics.right)).toBeLessThanOrEqual(8);
+});

@@ -1,19 +1,21 @@
 const STORAGE_KEY = 'llubi.split-percent';
 const MIN_PERCENT = 20;
 const MAX_PERCENT = 80;
+const SPLITTER_WIDTH = 7;
 
 export function setupSplitter(
   container: HTMLElement,
   splitter: HTMLElement,
   leftPane: HTMLElement,
 ): void {
-  let percent = Number(localStorage.getItem(STORAGE_KEY));
+  const stored = localStorage.getItem(STORAGE_KEY);
+  let percent = stored === null ? 50 : Number(stored);
   if (!Number.isFinite(percent)) percent = 50;
   percent = clamp(percent);
 
   const apply = (value: number) => {
     percent = clamp(value);
-    leftPane.style.flex = `0 0 ${percent}%`;
+    leftPane.style.flex = `0 0 calc(${percent}% - ${SPLITTER_WIDTH / 2}px)`;
     splitter.setAttribute('aria-valuenow', String(Math.round(percent)));
   };
   apply(percent);
