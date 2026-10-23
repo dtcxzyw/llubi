@@ -24,6 +24,7 @@ import { setupOutputSplitter, setupSplitter } from './split';
 const STORAGE_IR = 'llubi.ir';
 const STORAGE_OPTIONS = 'llubi.options';
 const STORAGE_AUTO_RUN = 'llubi.auto-run';
+const STORAGE_THEME = 'llubi.theme';
 
 const runButton = byId<HTMLButtonElement>('run');
 const modeAuto = byId<HTMLButtonElement>('mode-auto');
@@ -57,6 +58,7 @@ const generateTestButton = byId<HTMLButtonElement>('generate-test');
 const reportBugButton = byId<HTMLButtonElement>('report-bug');
 const editorMeta = byId<HTMLElement>('editor-meta');
 const buildInfoElement = byId<HTMLElement>('build-info');
+const themeSelect = byId<HTMLSelectElement>('theme-select');
 const splitElement = byId<HTMLElement>('split');
 const splitter = byId<HTMLElement>('splitter');
 const leftPane = document.querySelector<HTMLElement>('.editor-pane');
@@ -129,8 +131,25 @@ const numericScales: NumericScale[] = [
   },
 ];
 
+type ThemeChoice =
+  | 'system'
+  | 'light'
+  | 'dark'
+  | 'colorblind'
+  | 'high-contrast';
+
+const THEME_CHOICES: ThemeChoice[] = [
+  'system',
+  'light',
+  'dark',
+  'colorblind',
+  'high-contrast',
+];
+const systemDarkTheme = window.matchMedia('(prefers-color-scheme: dark)');
+
 let options = loadOptions();
 let autoRun = localStorage.getItem(STORAGE_AUTO_RUN) !== 'false';
+let themeChoice: ThemeChoice = 'system';
 let scheduled: number | undefined;
 let activeId = 0;
 let busy = false;
@@ -169,6 +188,7 @@ let highlightLlvm: (text: string) => DocumentFragment = (text) => {
 void start();
 
 async function start(): Promise<void> {
+  setupTheme();
   void loadBuildInfo();
   void loadExamples();
   const catalog = await loadCompletionCatalog();
@@ -289,6 +309,44 @@ function byId<T extends HTMLElement = HTMLElement>(id: string): T {
   const element = document.getElementById(id);
   if (!element) throw new Error(`missing #${id}`);
   return element as T;
+}
+
+function loadThemeChoice(): ThemeChoice {
+  try {
+    const stored = localStorage.getItem(STORAGE_THEME);
+    if (THEME_CHOICES.includes(stored as ThemeChoice)) {
+      return stored as ThemeChoice;
+    }
+  } catch {}
+  return 'system';
+}
+
+function applyTheme(choice: ThemeChoice): void {
+  const effective =
+    choice === 'system'
+      ? systemDarkTheme.matches
+        ? 'dark'
+        : 'light'
+      : choice;
+  themeChoice = choice;
+  themeSelect.value = choice;
+  document.documentElement.dataset.theme = effective;
+}
+
+function setupTheme(): void {
+  applyTheme(loadThemeChoice());
+  themeSelect.addEventListener('change', () => {
+    const choice = THEME_CHOICES.includes(themeSelect.value as ThemeChoice)
+      ? (themeSelect.value as ThemeChoice)
+      : 'system';
+    try {
+      localStorage.setItem(STORAGE_THEME, choice);
+    } catch {}
+    applyTheme(choice);
+  });
+  systemDarkTheme.addEventListener('change', () => {
+    if (themeChoice === 'system') applyTheme('system');
+  });
 }
 
 function loadOptions(): RunOptions {

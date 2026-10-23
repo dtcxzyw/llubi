@@ -4,6 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
+    <script>
+      (() => {
+        const choices = ['light', 'dark', 'colorblind', 'high-contrast'];
+        let choice = 'system';
+        try {
+          const stored = localStorage.getItem('llubi.theme');
+          if (choices.includes(stored)) choice = stored;
+        } catch {}
+        document.documentElement.dataset.theme =
+          choice === 'system'
+            ? matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+            : choice;
+      })();
+    </script>
     <title>llubi playground</title>
   </head>
   <body>
@@ -15,6 +31,20 @@
         </div>
         <div class="build-info" id="build-info">loading build info...</div>
         <div class="topbar-actions">
+          <label class="theme-picker">
+            <span class="theme-label">Theme</span>
+            <select
+              id="theme-select"
+              aria-label="Theme"
+              title="Theme; System follows the OS light or dark appearance"
+            >
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+              <option value="colorblind">Colorblind</option>
+              <option value="high-contrast">High contrast</option>
+            </select>
+          </label>
           <a
             class="text-link"
             href="https://github.com/dtcxzyw/llubi"

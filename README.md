@@ -59,6 +59,9 @@ used automatically when available.
   is maintained by hand.
 - Auto/Manual mode switch: Auto hides the Run button and reruns after edits;
   Manual exposes an explicit Run action. Ctrl/Cmd+Enter always runs.
+- The theme picker follows the system light/dark appearance by default and also
+  offers explicit light, dark, colorblind-friendly, and high-contrast themes;
+  the choice is stored locally.
 - Execution happens in a Web Worker; a new edit supersedes an in-flight run,
   and long runs are killed after 10 seconds.
 - Verbose trace rows jump to their instruction, call site, function, or label in
