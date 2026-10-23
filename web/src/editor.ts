@@ -19,6 +19,9 @@ import {
   foldKeymap,
   HighlightStyle,
   indentOnInput,
+  indentService,
+  indentUnit,
+  type IndentContext,
   StreamLanguage,
   StringStream,
   syntaxHighlighting,
@@ -206,6 +209,22 @@ function createCompletionSource(
   };
 }
 
+function llvmIndent(context: IndentContext, pos: number): number {
+  const line = context.state.doc.lineAt(pos);
+  const beforeText = line.text.slice(0, pos - line.from);
+  const afterText = line.text.slice(pos - line.from).trimStart();
+  const current = /^\s*/.exec(line.text)?.[0].length ?? 0;
+  const trimmed = line.text.trim();
+  const unit = context.unit;
+
+  if (afterText.startsWith('}') || afterText.startsWith(']'))
+    return Math.max(0, current - unit);
+  if (/[{\[(]\s*$/.test(beforeText)) return current + unit;
+  if (/^[-a-zA-Z$._0-9]+:$/.test(trimmed)) return Math.max(unit, current);
+  if (/}\s*$/.test(beforeText)) return Math.max(0, current - unit);
+  return current;
+}
+
 function createLlvmTokenMatcher(catalog: CompletionCatalog) {
   const instructions = new Set(catalog.instructions);
   const keywords = new Set(catalog.keywords);
@@ -357,6 +376,8 @@ export function createEditor(
         dropCursor(),
         EditorState.allowMultipleSelections.of(true),
         indentOnInput(),
+        indentUnit.of('  '),
+        indentService.of(llvmIndent),
         bracketMatching(),
         rectangularSelection(),
         crosshairCursor(),

@@ -537,3 +537,17 @@ test('shows unsupported instructions directly with a stack frame', async ({
     '%res = call i32 @unknown()',
   );
 });
+
+test('auto-indents LLVM IR on Enter', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Manual' }).click();
+  await page.locator('.cm-line', { hasText: 'define i32 @main() {' }).click();
+  await page.keyboard.press('End');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('%x = alloca i32');
+  const inserted = page.locator('.cm-line', { hasText: '%x = alloca i32' });
+  expect(await inserted.evaluate((node) => node.textContent)).toBe(
+    '  %x = alloca i32',
+  );
+});

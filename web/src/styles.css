@@ -738,6 +738,15 @@ button:disabled {
   line-height: 1.5;
 }
 
+.editor-host .cm-content {
+  caret-color: var(--text);
+}
+
+.editor-host .cm-cursor,
+.editor-host .cm-dropCursor {
+  border-left-color: var(--text);
+}
+
 .editor-host .cm-gutters {
   background: var(--panel);
   color: var(--muted);
