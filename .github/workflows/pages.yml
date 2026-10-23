@@ -29,7 +29,7 @@ jobs:
       LLUBI_JOBS: '4'
     steps:
       - name: Checkout playground
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Resolve LLVM ref
         id: llvm
@@ -40,7 +40,7 @@ jobs:
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
 
       - name: Checkout LLVM
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: llvm/llvm-project
           ref: ${{ steps.llvm.outputs.ref }}
@@ -59,13 +59,13 @@ jobs:
           echo "CCACHE_COMPRESS=true" >> "$GITHUB_ENV"
 
       - name: Cache local toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/llubi-web
           key: llubi-tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup.sh') }}
 
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           # A unique key lets every run persist newly compiled objects. The
           # restore key seeds the build from the most recent cache instead.
@@ -75,7 +75,7 @@ jobs:
             llubi-ccache-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup.sh') }}-
 
       - name: Cache npm downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.npm
           key: llubi-npm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('web/package-lock.json') }}
@@ -83,7 +83,7 @@ jobs:
             llubi-npm-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: llubi-playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('web/package-lock.json') }}
@@ -131,7 +131,7 @@ jobs:
         run: npm run test:e2e
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: web/dist
 
@@ -148,4 +148,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
