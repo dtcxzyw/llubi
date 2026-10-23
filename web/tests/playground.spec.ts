@@ -42,4 +42,5 @@ test('reports parse errors without running the program', async ({ page }) => {
   await page.keyboard.type('\nthis is not IR\n');
   await expect(page.locator('#status')).toHaveClass(/status-error/);
   await expect(page.locator('#output')).toContainText('parse');
+  await expect(page.locator('.cm-error-line')).toHaveCount(1);
 });
