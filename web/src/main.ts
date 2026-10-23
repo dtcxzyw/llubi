@@ -54,6 +54,7 @@ const runCommandElement = byId<HTMLElement>('run-command');
 const copyRunButton = byId<HTMLButtonElement>('copy-run');
 const copyChecksButton = byId<HTMLButtonElement>('copy-checks');
 const generateTestButton = byId<HTMLButtonElement>('generate-test');
+const reportBugButton = byId<HTMLButtonElement>('report-bug');
 const editorMeta = byId<HTMLElement>('editor-meta');
 const buildInfoElement = byId<HTMLElement>('build-info');
 const splitElement = byId<HTMLElement>('split');
@@ -91,9 +92,15 @@ let entryMatches: string[] = [];
 let entryActiveIndex = -1;
 let entryMenuOpen = false;
 let activeRunOptions: RunOptions | null = null;
+let activeRunIR = '';
 let inputVersion = 0;
 let activeRunVersion = 0;
 let lastCheckLines = '';
+let lastRunIR = '';
+let lastRunOptions: RunOptions = options;
+let lastRunResult: RunResult | null = null;
+let lastRunCrash: string | null = null;
+let currentBuildInfo: BuildInfo | null = null;
 let testExamples: ExampleEntry[] = [];
 const copyFeedbackTimers = new WeakMap<HTMLButtonElement, number>();
 
@@ -179,6 +186,7 @@ async function start(): Promise<void> {
   generateTestButton.addEventListener('click', () =>
     copyText(buildFullTest(), generateTestButton),
   );
+  reportBugButton.addEventListener('click', openBugReport);
 
   for (const input of Object.values(optionInputs)) {
     input.addEventListener('input', onOptionsChanged);
@@ -514,11 +522,13 @@ function runNow(): void {
   outputMeta.textContent = '';
   setCheckLines('');
 
+  const ir = editor.getValue();
   const request: WorkerRequest = {
     id,
-    ir: editor.getValue(),
+    ir,
     options: readOptionsFromForm(),
   };
+  activeRunIR = ir;
   options = request.options;
   activeRunOptions = request.options;
   activeRunVersion = inputVersion;
@@ -598,6 +608,7 @@ function setStatus(text: string, kind: 'idle' | 'running' | 'ok' | 'warn' | 'err
 function renderEmpty(): void {
   outputMeta.textContent = '';
   setCheckLines('');
+  updateReportButton();
   printOutput.replaceChildren(
     element('p', 'empty', 'No program output.'),
   );
@@ -606,7 +617,16 @@ function renderEmpty(): void {
   );
 }
 
+function recordCrash(message: string): void {
+  lastRunIR = activeRunIR || editor.getValue();
+  lastRunOptions = activeRunOptions ?? options;
+  lastRunResult = null;
+  lastRunCrash = message;
+  updateReportButton();
+}
+
 function renderFatal(message: string): void {
+  recordCrash(message);
   editor.clearDiagnostics();
   setCheckLines('');
   const box = element('div', 'result result-error');
@@ -630,32 +650,37 @@ function shellQuote(value: string): string {
   return "'" + value.replaceAll("'", "'\\''") + "'";
 }
 
+function buildOptionFlags(runOptions: RunOptions): string[] {
+  const flags: string[] = [];
+  if (runOptions.entryFunction !== DEFAULT_OPTIONS.entryFunction)
+    flags.push(`--entry-function=${shellQuote(runOptions.entryFunction)}`);
+  if (runOptions.fakeArgv0)
+    flags.push(`--fake-argv0=${shellQuote(runOptions.fakeArgv0)}`);
+  if (runOptions.deterministic) flags.push('--deterministic');
+  if (runOptions.maxMemMiB !== DEFAULT_OPTIONS.maxMemMiB)
+    flags.push(`--max-mem=${runOptions.maxMemMiB * 1024 * 1024}`);
+  if (runOptions.maxSteps !== DEFAULT_OPTIONS.maxSteps)
+    flags.push(`--max-steps=${runOptions.maxSteps}`);
+  if (runOptions.maxStackDepth !== DEFAULT_OPTIONS.maxStackDepth)
+    flags.push(`--max-stack-depth=${runOptions.maxStackDepth}`);
+  if (runOptions.vscale !== DEFAULT_OPTIONS.vscale)
+    flags.push(`--vscale=${runOptions.vscale}`);
+  if (runOptions.seed !== DEFAULT_OPTIONS.seed)
+    flags.push(`--seed=${runOptions.seed}`);
+  if (runOptions.undefBehavior !== DEFAULT_OPTIONS.undefBehavior)
+    flags.push(`--undef-behavior=${runOptions.undefBehavior}`);
+  if (runOptions.nanBehavior !== DEFAULT_OPTIONS.nanBehavior)
+    flags.push(`--nan-behavior=${runOptions.nanBehavior}`);
+  if (!runOptions.fuseFMulAdd) flags.push('--fuse-fmuladd=false');
+  if (runOptions.disableVerify) flags.push('--disable-verify');
+  return flags;
+}
+
 function buildRunCommand(
   runOptions: RunOptions,
   result: RunResult | null,
 ): string {
-  const parts = ['llubi', '--verbose'];
-  if (runOptions.entryFunction !== DEFAULT_OPTIONS.entryFunction)
-    parts.push(`--entry-function=${shellQuote(runOptions.entryFunction)}`);
-  if (runOptions.fakeArgv0)
-    parts.push(`--fake-argv0=${shellQuote(runOptions.fakeArgv0)}`);
-  if (runOptions.deterministic) parts.push('--deterministic');
-  if (runOptions.maxMemMiB !== DEFAULT_OPTIONS.maxMemMiB)
-    parts.push(`--max-mem=${runOptions.maxMemMiB * 1024 * 1024}`);
-  if (runOptions.maxSteps !== DEFAULT_OPTIONS.maxSteps)
-    parts.push(`--max-steps=${runOptions.maxSteps}`);
-  if (runOptions.maxStackDepth !== DEFAULT_OPTIONS.maxStackDepth)
-    parts.push(`--max-stack-depth=${runOptions.maxStackDepth}`);
-  if (runOptions.vscale !== DEFAULT_OPTIONS.vscale)
-    parts.push(`--vscale=${runOptions.vscale}`);
-  if (runOptions.seed !== DEFAULT_OPTIONS.seed)
-    parts.push(`--seed=${runOptions.seed}`);
-  if (runOptions.undefBehavior !== DEFAULT_OPTIONS.undefBehavior)
-    parts.push(`--undef-behavior=${runOptions.undefBehavior}`);
-  if (runOptions.nanBehavior !== DEFAULT_OPTIONS.nanBehavior)
-    parts.push(`--nan-behavior=${runOptions.nanBehavior}`);
-  if (!runOptions.fuseFMulAdd) parts.push('--fuse-fmuladd=false');
-  if (runOptions.disableVerify) parts.push('--disable-verify');
+  const parts = ['llubi', '--verbose', ...buildOptionFlags(runOptions)];
   if (runOptions.argv.length > 0)
     parts.push('--', ...runOptions.argv.map(shellQuote));
 
@@ -672,8 +697,10 @@ function updateRunCommand(
   runCommandElement.title = command;
 }
 
-function buildCheckLines(result: RunResult, runOptions: RunOptions): string {
-  if (result.trace.length === 0) return '';
+function buildOutputLines(
+  result: RunResult,
+  runOptions: RunOptions,
+): string[] {
   const lines: string[] = [];
   for (const entry of result.trace) lines.push(...entry.text.split('\n'));
 
@@ -710,10 +737,93 @@ function buildCheckLines(result: RunResult, runOptions: RunOptions): string {
       `error: Execution of function '${runOptions.entryFunction}' resulted in poison return value.`,
     );
   }
+  return lines;
+}
 
-  return lines
+function buildCheckLines(result: RunResult, runOptions: RunOptions): string {
+  if (result.trace.length === 0) return '';
+  return buildOutputLines(result, runOptions)
     .map((line, index) => `; ${index === 0 ? 'CHECK' : 'CHECK-NEXT'}: ${line}`)
     .join('\n');
+}
+
+function extractAssertion(message: string): string | null {
+  const line = message
+    .split(/\r?\n/)
+    .find((item) => item.includes('Assertion failed:'));
+  if (!line) return null;
+  const assertion = line
+    .slice(line.indexOf('Assertion failed:'))
+    .replace(/\)\s*$/, '')
+    .trim();
+  return assertion || null;
+}
+
+function buildReportTitle(): string {
+  if (lastRunCrash) {
+    return `[llubi] ${extractAssertion(lastRunCrash) ?? 'Crash: TODO'}`;
+  }
+  const unsupported = lastRunResult?.diagnostics.find(
+    (diagnostic) => diagnostic.kind === 'unsupported',
+  );
+  if (unsupported) return `[llubi] ${unsupported.message}`;
+  return '[llubi] Unexpected behavior: TODO';
+}
+
+function buildReproducerRunLine(runOptions: RunOptions): string {
+  const parts = ['; bin/llubi', ...buildOptionFlags(runOptions), '--verbose', 'input.ll'];
+  return parts.join(' ');
+}
+
+function buildReportBody(): string {
+  const outputLines = lastRunResult
+    ? buildOutputLines(lastRunResult, lastRunOptions)
+    : (lastRunCrash ?? '').split(/\r?\n/).filter(Boolean);
+  const lines = [
+    'Reproducer:',
+    '```llvm',
+    buildReproducerRunLine(lastRunOptions),
+    stripTestDirectives(lastRunIR),
+    '```',
+    'llubi output:',
+    '```',
+    ...outputLines,
+    '```',
+  ];
+  if (lastRunCrash) {
+    lines.push('```', 'TODO: stack trace');
+    const assertion = extractAssertion(lastRunCrash);
+    if (assertion) lines.push(assertion);
+    lines.push('```');
+  }
+  const info = currentBuildInfo
+    ? `${currentBuildInfo.llvmVersion} (${
+        currentBuildInfo.llvmCommitShort || currentBuildInfo.llvmCommit
+      })`
+    : 'unknown';
+  lines.push(`llvm version: ${info}`);
+  return lines.join('\n');
+}
+
+function updateReportButton(): void {
+  reportBugButton.disabled = !lastRunIR || (!lastRunResult && !lastRunCrash);
+  reportBugButton.classList.toggle('is-crash', lastRunCrash !== null);
+}
+
+function openBugReport(): void {
+  if (!lastRunIR || (!lastRunResult && !lastRunCrash)) return;
+  const labels = ['tools:llubi'];
+  if (lastRunCrash) labels.push('crash-on-valid');
+  const params = new URLSearchParams({
+    title: buildReportTitle(),
+    body: buildReportBody(),
+    labels: labels.join(','),
+  });
+  window.open(
+    `https://github.com/llvm/llvm-project/issues/new?${params.toString()}`,
+    '_blank',
+    'noopener,noreferrer',
+  );
 }
 
 function setCheckLines(text: string): void {
@@ -783,6 +893,11 @@ function fallbackCopy(text: string): boolean {
 }
 
 function renderResult(result: RunResult, runOptions: RunOptions): void {
+  lastRunIR = activeRunIR || editor.getValue();
+  lastRunOptions = runOptions;
+  lastRunResult = result;
+  lastRunCrash = null;
+  updateReportButton();
   editor.setDiagnostics(result.diagnostics);
   outputMeta.textContent = `${result.durationMs} ms${
     result.truncated ? ' · truncated' : ''
@@ -1031,6 +1146,7 @@ async function loadBuildInfo(): Promise<void> {
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const info = (await response.json()) as BuildInfo;
+    currentBuildInfo = info;
     renderBuildInfo(info);
   } catch {
     buildInfoElement.textContent = 'development build';
