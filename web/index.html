@@ -115,26 +115,116 @@
             <span>argv (one per line)</span>
             <textarea id="opt-argv" rows="2" spellcheck="false"></textarea>
           </label>
-          <label>
-            <span>Max memory (MiB)</span>
-            <input id="opt-max-mem" type="number" min="1" max="2047" step="1" />
-          </label>
-          <label>
-            <span>Max steps</span>
-            <input id="opt-max-steps" type="number" min="0" step="1000" />
-          </label>
-          <label>
-            <span>Max stack depth</span>
-            <input id="opt-max-stack" type="number" min="0" step="1" />
-          </label>
-          <label>
-            <span>vscale</span>
-            <input id="opt-vscale" type="number" min="1" step="1" />
-          </label>
-          <label>
-            <span>Random seed</span>
-            <input id="opt-seed" type="number" min="0" step="1" />
-          </label>
+          <div class="param-field">
+            <label for="opt-max-mem">Max memory (MiB)</label>
+            <div class="number-control">
+              <button
+                class="number-button"
+                type="button"
+                data-target="opt-max-mem"
+                data-direction="-1"
+                aria-label="Decrease Max memory (MiB)"
+                title="Decrease Max memory (MiB)"
+              >−</button>
+              <input id="opt-max-mem" type="number" min="1" max="2047" step="any" />
+              <button
+                class="number-button"
+                type="button"
+                data-target="opt-max-mem"
+                data-direction="1"
+                aria-label="Increase Max memory (MiB)"
+                title="Increase Max memory (MiB)"
+              >+</button>
+            </div>
+          </div>
+          <div class="param-field">
+            <label for="opt-max-steps">Max steps</label>
+            <div class="number-control">
+              <button
+                class="number-button"
+                type="button"
+                data-target="opt-max-steps"
+                data-direction="-1"
+                aria-label="Decrease Max steps"
+                title="Decrease Max steps"
+              >−</button>
+              <input id="opt-max-steps" type="number" min="0" step="any" />
+              <button
+                class="number-button"
+                type="button"
+                data-target="opt-max-steps"
+                data-direction="1"
+                aria-label="Increase Max steps"
+                title="Increase Max steps"
+              >+</button>
+            </div>
+          </div>
+          <div class="param-field">
+            <label for="opt-max-stack">Max stack depth</label>
+            <div class="number-control">
+              <button
+                class="number-button"
+                type="button"
+                data-target="opt-max-stack"
+                data-direction="-1"
+                aria-label="Decrease Max stack depth"
+                title="Decrease Max stack depth"
+              >−</button>
+              <input id="opt-max-stack" type="number" min="0" step="any" />
+              <button
+                class="number-button"
+                type="button"
+                data-target="opt-max-stack"
+                data-direction="1"
+                aria-label="Increase Max stack depth"
+                title="Increase Max stack depth"
+              >+</button>
+            </div>
+          </div>
+          <div class="param-field">
+            <label for="opt-vscale">vscale</label>
+            <div class="number-control">
+              <button
+                class="number-button"
+                type="button"
+                data-target="opt-vscale"
+                data-direction="-1"
+                aria-label="Decrease vscale"
+                title="Decrease vscale"
+              >−</button>
+              <input id="opt-vscale" type="number" min="1" step="any" />
+              <button
+                class="number-button"
+                type="button"
+                data-target="opt-vscale"
+                data-direction="1"
+                aria-label="Increase vscale"
+                title="Increase vscale"
+              >+</button>
+            </div>
+          </div>
+          <div class="param-field">
+            <label for="opt-seed">Random seed</label>
+            <div class="number-control">
+              <button
+                class="number-button"
+                type="button"
+                data-target="opt-seed"
+                data-direction="-1"
+                aria-label="Decrease Random seed"
+                title="Decrease Random seed"
+              >−</button>
+              <input id="opt-seed" type="number" min="0" step="any" />
+              <button
+                class="number-button"
+                type="button"
+                data-target="opt-seed"
+                data-direction="1"
+                aria-label="Increase Random seed"
+                title="Increase Random seed"
+              >+</button>
+            </div>
+          </div>
           <label>
             <span>Undef behavior</span>
             <select id="opt-undef">

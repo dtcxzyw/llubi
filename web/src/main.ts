@@ -314,34 +314,70 @@ function setupNumericScaling(): void {
       scaleNumericInput(config, event.key === 'ArrowUp' ? 1 : -1);
     });
   }
+  for (const button of document.querySelectorAll<HTMLButtonElement>(
+    '.number-button',
+  )) {
+    button.addEventListener('click', () => {
+      const config = numericScales.find(
+        (item) => item.input.id === button.dataset.target,
+      );
+      if (!config) return;
+      scaleNumericInput(config, button.dataset.direction === '1' ? 1 : -1);
+      config.input.focus();
+    });
+  }
+  updateNumericButtons();
 }
 
-function scaleNumericInput(config: NumericScale, direction: 1 | -1): void {
+function scaledValue(config: NumericScale, direction: 1 | -1): number {
   const current = numberValue(
     config.input,
     config.min,
     config.max,
     config.fallback,
   );
-  let next: number;
   if (config.powerOfTwo) {
     const maxPower = 2 ** Math.floor(Math.log2(config.max));
-    if (direction > 0) {
-      next = 2 ** (Math.floor(Math.log2(current)) + 1);
-    } else {
-      next = 2 ** Math.max(0, Math.ceil(Math.log2(current)) - 1);
-    }
-    next = Math.min(maxPower, Math.max(config.min, next));
-  } else if (direction > 0) {
-    next = current === 0 ? 1 : current * config.factor;
-  } else {
-    next = Math.floor(current / config.factor);
+    if (direction > 0 && current >= maxPower) return current;
+    const next =
+      direction > 0
+        ? 2 ** (Math.floor(Math.log2(current)) + 1)
+        : 2 ** Math.max(0, Math.ceil(Math.log2(current)) - 1);
+    return Math.min(maxPower, Math.max(config.min, next));
   }
-  next = Math.min(config.max, Math.max(config.min, Math.trunc(next)));
+  const next =
+    direction > 0
+      ? current === 0
+        ? 1
+        : current * config.factor
+      : Math.floor(current / config.factor);
+  return Math.min(config.max, Math.max(config.min, Math.trunc(next)));
+}
+
+function scaleNumericInput(config: NumericScale, direction: 1 | -1): void {
+  const next = scaledValue(config, direction);
   const value = String(next);
   if (config.input.value === value) return;
   config.input.value = value;
   config.input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function updateNumericButtons(): void {
+  for (const button of document.querySelectorAll<HTMLButtonElement>(
+    '.number-button',
+  )) {
+    const config = numericScales.find(
+      (item) => item.input.id === button.dataset.target,
+    );
+    if (!config) continue;
+    const direction = button.dataset.direction === '1' ? 1 : -1;
+    button.disabled = scaledValue(config, direction) === numberValue(
+      config.input,
+      config.min,
+      config.max,
+      config.fallback,
+    );
+  }
 }
 
 function readOptionsFromForm(): RunOptions {
@@ -391,6 +427,7 @@ function applyOptionsToForm(value: RunOptions): void {
   optionInputs.deterministic.checked = value.deterministic;
   optionInputs.fuseFMulAdd.checked = value.fuseFMulAdd;
   optionInputs.disableVerify.checked = value.disableVerify;
+  updateNumericButtons();
 }
 
 function onOptionsChanged(): void {
@@ -398,6 +435,7 @@ function onOptionsChanged(): void {
   saveOptions();
   inputVersion += 1;
   setCheckLines('');
+  updateNumericButtons();
   updateRunCommand(options, null);
   scheduleRun();
 }
