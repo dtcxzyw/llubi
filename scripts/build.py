@@ -46,7 +46,9 @@ def load_tool_env() -> None:
         )
     )
     env_file = tools_dir / "env.sh"
-    if not env_file.exists() or shutil.which("emcc"):
+    if not env_file.exists():
+        return
+    if shutil.which("emcc") and shutil.which("npm"):
         return
 
     log(f"loading tool environment from {env_file}")
@@ -105,7 +107,13 @@ def build_native_tblgen(
     use_ccache: bool,
 ) -> Path:
     tblgen = build_dir / "bin" / "llvm-tblgen"
-    if tblgen.is_file():
+    stamp = build_dir / "llvm-revision"
+    revision = git_value(llvm_source, "rev-parse", "HEAD")
+    if (
+        tblgen.is_file()
+        and stamp.is_file()
+        and stamp.read_text().strip() == revision
+    ):
         return build_dir / "bin"
 
     log("building native llvm-tblgen")
@@ -155,6 +163,7 @@ def build_native_tblgen(
     )
     if not tblgen.is_file():
         die("native llvm-tblgen was not produced")
+    stamp.write_text(revision + "\n")
     return build_dir / "bin"
 
 
@@ -327,8 +336,6 @@ def main() -> None:
     native_tool_arg = args.native_tool_dir or os.environ.get("LLVM_NATIVE_TOOL_DIR")
     if native_tool_arg:
         native_tool_dir = Path(native_tool_arg).expanduser().resolve()
-    elif (native_build_dir / "bin" / "llvm-tblgen").is_file():
-        native_tool_dir = native_build_dir / "bin"
     else:
         native_tool_dir = build_native_tblgen(
             llvm_source, native_build_dir, jobs, use_ccache
