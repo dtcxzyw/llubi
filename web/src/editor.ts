@@ -222,7 +222,11 @@ const attributes = new Set([
 ]);
 
 const llvmIR = StreamLanguage.define<null>({
+  name: 'llvm-ir',
   startState: () => null,
+  languageData: {
+    commentTokens: { line: ';' },
+  },
   token(stream) {
     if (stream.eatSpace()) return null;
     if (stream.match(/;.*/)) return 'comment';

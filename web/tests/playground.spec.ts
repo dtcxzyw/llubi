@@ -83,3 +83,15 @@ test('links parameters to the llubi and LangRef documentation', async ({ page })
     page.locator('a[href="https://llvm.org/docs/LangRef.html#floatnan"]'),
   ).toBeVisible();
 });
+
+test('toggles LLVM IR line comments with Mod-/', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Manual' }).click();
+  const editor = page.locator('.cm-content');
+  await page.locator('.cm-line', { hasText: 'ret i32 0' }).click();
+  await page.keyboard.press('Control+/');
+  await expect(editor).toContainText('; ret i32 0');
+  await page.keyboard.press('Control+/');
+  await expect(editor).not.toContainText('; ret i32 0');
+});
