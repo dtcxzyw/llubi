@@ -14,7 +14,7 @@ test('highlights the runtime error line and lists the stack frame', async ({
 }) => {
   await page.goto('./');
   await expect(page.locator('#status')).toHaveClass(/status-ok/);
-  await page.getByRole('button', { name: 'Examples' }).click();
+  await page.locator('#examples-toggle').click();
   await page.getByRole('button', { name: 'UB: free out of bounds' }).click();
   await expect(page.locator('#status')).toHaveClass(/status-error/);
   await expect(page.locator('#output')).toContainText('freeing a pointer');
@@ -387,7 +387,7 @@ test('opens the examples panel with built-ins first and generated tests', async 
 }) => {
   await page.goto('./');
   await expect(page.locator('#status')).toHaveClass(/status-ok/);
-  await page.getByRole('button', { name: 'Examples' }).click();
+  await page.locator('#examples-toggle').click();
   await expect(page.locator('#examples-panel')).toHaveClass(/is-open/);
   await expect(
     page.locator('#examples-builtin .example-item').first(),
@@ -413,7 +413,7 @@ test('opens the examples panel with built-ins first and generated tests', async 
     .locator('#examples-tests .example-item')
     .filter({ hasText: 'deterministic' })
     .click();
-  await expect(page.locator('#examples-panel')).not.toHaveClass(/is-open/);
+  await expect(page.locator('#examples-panel')).toHaveClass(/is-open/);
   await page.getByRole('button', { name: 'Parameters' }).click();
   await expect(page.locator('#opt-deterministic')).toBeChecked();
   await expect(page.locator('.cm-content')).not.toContainText('CHECK-NEXT');
@@ -427,7 +427,7 @@ test('generates a complete lit test from the current result', async ({
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('./');
   await expect(page.locator('#status')).toHaveClass(/status-ok/);
-  await page.getByRole('button', { name: 'Examples' }).click();
+  await page.locator('#examples-toggle').click();
   await page.locator('#examples-filter').fill('deterministic');
   await page
     .locator('#examples-tests .example-item')
@@ -445,4 +445,40 @@ test('generates a complete lit test from the current result', async ({
   expect(fullTest).toContain('; CHECK: Entering function: main');
   expect(fullTest).toMatch(/; CHECK-NEXT: Exiting function: main/);
   expect(fullTest).not.toContain('; CHECK-NEXT: ; CHECK');
+});
+
+test('the examples drawer squeezes the editor and has explicit close controls', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  const editorWidthBefore = await page
+    .locator('#editor')
+    .evaluate((node) => node.getBoundingClientRect().width);
+
+  await page.locator('#examples-toggle').click();
+  await expect(page.locator('#examples-panel')).toHaveClass(/is-open/);
+  const metrics = await page.evaluate(() => {
+    const body = document.querySelector('.editor-body')!.getBoundingClientRect();
+    const panel = document.querySelector('#examples-panel')!.getBoundingClientRect();
+    const editor = document.querySelector('#editor')!.getBoundingClientRect();
+    return {
+      body: body.width,
+      panel: panel.width,
+      editor: editor.width,
+    };
+  });
+  expect(metrics.panel / metrics.body).toBeGreaterThan(0.25);
+  expect(metrics.panel / metrics.body).toBeLessThan(0.45);
+  expect(metrics.editor).toBeLessThan(editorWidthBefore);
+
+  await page.getByRole('button', { name: 'Hello world' }).click();
+  await expect(page.locator('#examples-panel')).toHaveClass(/is-open/);
+
+  await page.getByRole('button', { name: 'Close examples' }).click();
+  await expect(page.locator('#examples-panel')).not.toHaveClass(/is-open/);
+  await page.locator('#examples-toggle').click();
+  await expect(page.locator('#examples-panel')).toHaveClass(/is-open/);
+  await page.locator('#examples-toggle').click();
+  await expect(page.locator('#examples-panel')).not.toHaveClass(/is-open/);
 });

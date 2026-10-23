@@ -407,7 +407,6 @@ function loadExample(example: ExampleEntry): void {
   saveOptions();
   editor.setValue(example.ir);
   editor.clearDiagnostics();
-  closeExamplesPanel(false);
   scheduleRun(0);
 }
 

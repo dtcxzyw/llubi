@@ -196,9 +196,9 @@
             <span>LLVM IR</span>
             <span id="editor-meta" class="pane-meta"></span>
           </div>
-          <div id="editor" class="editor-host"></div>
-          <aside
-            id="examples-panel"
+          <div class="editor-body">
+            <aside
+              id="examples-panel"
             class="examples-panel"
             aria-label="LLVM IR examples"
             aria-hidden="true"
@@ -232,9 +232,11 @@
                 llubi tests
               </div>
               <ul id="examples-tests" class="examples-list"></ul>
-              <p id="examples-empty" class="empty" hidden>No matching examples.</p>
-            </div>
-          </aside>
+                <p id="examples-empty" class="empty" hidden>No matching examples.</p>
+              </div>
+            </aside>
+            <div id="editor" class="editor-host"></div>
+          </div>
         </section>
         <div
           id="splitter"
