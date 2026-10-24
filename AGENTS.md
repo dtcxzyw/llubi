@@ -20,8 +20,8 @@ an LLVM checkout and does not hard-code a path to one.
 - `wasm/`: Emscripten entry points and the bridge into llubi.
 - `scripts/`: toolchain setup, wasm builds, development server, smoke tests, and
   generated completion, example, and LangRef catalogs.
-- `LICENSES/`, `THIRD_PARTY_NOTICES.md`: notices for LLVM, Emscripten, musl,
-  dlmalloc, and bundled frontend dependencies redistributed by the playground.
+- `THIRD_PARTY_NOTICES.md`: notices for LLVM, Emscripten, musl, dlmalloc, and
+  bundled frontend dependencies redistributed by the playground.
 - `.github/workflows/pages.yml`: CI and GitHub Pages deployment.
 
 ## Local Development
@@ -122,13 +122,15 @@ used automatically when available.
   redirecting LLVM's stderr stack trace to a MEMFS file and parsing the
   `Stacktrace:` frames. This keeps the LLVM checkout unmodified.
 - `web/public/build-info.json`, `web/public/completions.json`,
-  `web/public/examples.json`, and `web/public/langref.json` are generated at
-  build time. The build info is shown in the header.
+  `web/public/examples.json`, `web/public/langref.json`,
+  `web/public/licenses.html`, and `web/public/licenses/` are generated at build
+  time. The build info is shown in the header; the header's Licenses link opens
+  the generated third-party license page.
 
 ```bash
 cd web
 npm ci
-npm run build      # typecheck + production build
+npm run build      # typecheck + licenses + production build
 npm run test:e2e   # Playwright tests (build first)
 npm run smoke      # headless wasm API test (build wasm first)
 ```

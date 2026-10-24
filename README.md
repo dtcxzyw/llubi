@@ -19,9 +19,9 @@ The deployed playground also redistributes WebAssembly compiled from LLVM and
 llubi (Apache-2.0 WITH LLVM-exception), generated completion/example/LangRef
 catalogs derived from LLVM sources, tests, and documentation, plus
 Emscripten-generated runtime code (MIT/NCSA), musl libc (MIT), and MIT-licensed
-frontend dependencies. See
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the [LICENSES](LICENSES)
-directory for the full notices and license texts.
+frontend dependencies. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and
+the [Licenses page](https://dtcxzyw.github.io/llubi/licenses.html), which is
+generated at build time with the complete package list and license texts.
 
 LLVM is a trademark of the LLVM Foundation; this project is not affiliated with
 or endorsed by the LLVM Project or the LLVM Foundation.

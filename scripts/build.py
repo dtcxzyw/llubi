@@ -271,6 +271,33 @@ def generate_langref(llvm_source: Path) -> None:
     )
 
 
+def find_emscripten_root() -> Path | None:
+    emcc = shutil.which("emcc")
+    if not emcc:
+        return None
+    path = Path(emcc).resolve()
+    for candidate in (path.parent, path.parent / "upstream" / "emscripten"):
+        if (candidate / "LICENSE").is_file():
+            return candidate
+    return None
+
+
+def stage_licenses(llvm_source: Path) -> None:
+    destination = WEB_PUBLIC / "licenses"
+    destination.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(llvm_source / "llvm" / "LICENSE.TXT", destination / "LLVM.txt")
+
+    emscripten = find_emscripten_root()
+    if emscripten is None:
+        die("cannot locate the Emscripten source license")
+    shutil.copy2(emscripten / "LICENSE", destination / "Emscripten.txt")
+    shutil.copy2(
+        emscripten / "system" / "lib" / "libc" / "musl" / "COPYRIGHT",
+        destination / "musl.txt",
+    )
+    log(f"staged third-party license sources in {destination}")
+
+
 def generate_examples(llvm_source: Path) -> None:
     run(
         [
@@ -407,6 +434,7 @@ def main() -> None:
     generate_completions(llvm_source, build_dir)
     generate_examples(llvm_source)
     generate_langref(llvm_source)
+    stage_licenses(llvm_source)
     if not args.no_copy:
         stage_artifacts(build_dir)
     write_build_info(llvm_source, build_dir)

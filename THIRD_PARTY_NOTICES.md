@@ -14,7 +14,8 @@ generated from LLVM source files, tests, and documentation.
 - Upstream: https://llvm.org/
 - llubi command guide: https://llvm.org/docs/CommandGuide/llubi.html
 - License: Apache License 2.0 with LLVM Exceptions
-- Full license text: [LICENSES/LLVM.txt](LICENSES/LLVM.txt)
+- Full license text: included in the generated `licenses.html` and copied to
+  `web/public/licenses/LLVM.txt` at build time
 - Copyright: LLVM Project contributors
 
 The build compiles this code to WebAssembly and extracts the generated catalogs;
@@ -33,7 +34,8 @@ The WebAssembly build and generated JavaScript loader use Emscripten.
 
 - Upstream: https://emscripten.org/
 - License: MIT or University of Illinois/NCSA Open Source License
-- Full license text: [LICENSES/Emscripten.txt](LICENSES/Emscripten.txt)
+- Full license text: included in the generated `licenses.html` and copied to
+  `web/public/licenses/Emscripten.txt` at build time
 - Copyright: Emscripten authors
 
 ## musl libc
@@ -42,7 +44,8 @@ The WebAssembly runtime includes libc code derived from musl.
 
 - Upstream: https://musl.libc.org/
 - License: MIT
-- Full license text: [LICENSES/musl.txt](LICENSES/musl.txt)
+- Full license text: included in the generated `licenses.html` and copied to
+  `web/public/licenses/musl.txt` at build time
 - Copyright: Rich Felker and musl contributors
 
 ## dlmalloc
@@ -54,8 +57,10 @@ completeness.
 ## Frontend dependencies
 
 The browser bundle includes the MIT-licensed CodeMirror and Lezer packages and
-their transitive dependencies. Their versions and full MIT license texts are
-included in [LICENSES/frontend-runtime.txt](LICENSES/frontend-runtime.txt).
+their transitive dependencies. At build time, `license-checker-rseidelsohn`
+enumerates the installed production packages and their license texts; the
+result is included in `licenses.html` and
+`web/public/licenses/frontend-runtime.txt`.
 
 ## Trademarks
 

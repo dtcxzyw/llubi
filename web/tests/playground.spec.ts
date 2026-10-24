@@ -991,6 +991,21 @@ test('builds a prefilled LLVM issue report', async ({ page }) => {
   expect(body).toContain('llvm version:');
 });
 
+test('opens the generated third-party licenses page', async ({ page }) => {
+  await page.goto('./');
+  const link = page.getByRole('link', { name: 'Licenses' });
+  await expect(link).toHaveAttribute('href', 'licenses.html');
+  await link.click();
+  await expect(page).toHaveTitle('Third-party licenses - llubi playground');
+  await expect(
+    page.getByRole('heading', { name: 'Third-party licenses' }),
+  ).toBeVisible();
+  await expect(page.locator('#llvm')).toContainText('LLVM Project and llubi');
+  await expect(page.locator('#frontend')).toContainText('@codemirror/view');
+  await expect(page.locator('#frontend')).toContainText('MIT');
+  await expect(page.locator('a[href="licenses/LLVM.txt"]')).toBeVisible();
+});
+
 test('follows the system appearance until a theme is chosen', async ({
   page,
 }) => {
