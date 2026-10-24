@@ -20,6 +20,8 @@ an LLVM checkout and does not hard-code a path to one.
 - `wasm/`: Emscripten entry points and the bridge into llubi.
 - `scripts/`: toolchain setup, wasm builds, development server, smoke tests, and
   generated completion, example, and LangRef catalogs.
+- `LICENSES/`, `THIRD_PARTY_NOTICES.md`: notices for LLVM, Emscripten, musl,
+  dlmalloc, and bundled frontend dependencies redistributed by the playground.
 - `.github/workflows/pages.yml`: CI and GitHub Pages deployment.
 
 ## Local Development
