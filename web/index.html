@@ -111,7 +111,12 @@
         </div>
         <div class="params-grid">
           <div class="entry-field">
-            <label for="opt-entry">Entry function</label>
+            <label
+              for="opt-entry"
+              class="param-help"
+              title="Specify the name of the function to execute as the program's entry point. By default, llubi uses the function named main."
+              >Entry function</label
+            >
             <div id="entry-combo" class="combo">
               <input
                 id="opt-entry"
@@ -138,15 +143,28 @@
             </div>
           </div>
           <label>
-            <span>argv0</span>
+            <span
+              class="param-help"
+              title="Override the argv[0] value passed into the executing program."
+              >argv0</span
+            >
             <input id="opt-argv0" type="text" spellcheck="false" placeholder="llubi" />
           </label>
           <label class="wide">
-            <span>argv (one per line)</span>
+            <span
+              class="param-help"
+              title="The optional arguments passed to the program as command-line arguments. Enter one argument per line."
+              >argv (one per line)</span
+            >
             <textarea id="opt-argv" rows="2" spellcheck="false"></textarea>
           </label>
           <div class="param-field">
-            <label for="opt-max-mem">Max memory (MiB)</label>
+            <label
+              for="opt-max-mem"
+              class="param-help"
+              title="Limit the amount of memory that can be allocated by the program, including stack, heap, and global variables. If the limit is exceeded, execution will be terminated. The CLI default is 4 GiB; the playground defaults to 64 MiB and takes this value in MiB."
+              >Max memory (MiB)</label
+            >
             <div class="number-control">
               <button
                 class="number-button"
@@ -168,7 +186,12 @@
             </div>
           </div>
           <div class="param-field">
-            <label for="opt-max-steps">Max steps</label>
+            <label
+              for="opt-max-steps"
+              class="param-help"
+              title="Limit the number of instructions executed. If the limit is reached, execution will be terminated. By default, there is no limit (0); the playground defaults to 10,000,000."
+              >Max steps</label
+            >
             <div class="number-control">
               <button
                 class="number-button"
@@ -190,7 +213,12 @@
             </div>
           </div>
           <div class="param-field">
-            <label for="opt-max-stack">Max stack depth</label>
+            <label
+              for="opt-max-stack"
+              class="param-help"
+              title="Limit the maximum stack depth. If the limit is exceeded, execution will be terminated. The default limit is 256. Set it to 0 to disable the limit."
+              >Max stack depth</label
+            >
             <div class="number-control">
               <button
                 class="number-button"
@@ -212,7 +240,12 @@
             </div>
           </div>
           <div class="param-field">
-            <label for="opt-vscale">vscale</label>
+            <label
+              for="opt-vscale"
+              class="param-help"
+              title="Set the value of llvm.vscale. The default value is 4. The value must be a positive power of two."
+              >vscale</label
+            >
             <div class="number-control">
               <button
                 class="number-button"
@@ -234,7 +267,12 @@
             </div>
           </div>
           <div class="param-field">
-            <label for="opt-seed">Random seed</label>
+            <label
+              for="opt-seed"
+              class="param-help"
+              title="Set the seed for the random number generator used for non-deterministic behavior. The default seed is 0."
+              >Random seed</label
+            >
             <div class="number-control">
               <button
                 class="number-button"
@@ -256,7 +294,11 @@
             </div>
           </div>
           <label>
-            <span>Undef behavior</span>
+            <span
+              class="param-help"
+              title="Set the behavior for undefined values (e.g., a load from uninitialized memory or freezing a poison value). nondet: each load of an uninitialized byte yields a freshly random value (default). zero: all uses of an uninitialized byte yield zero."
+              >Undef behavior</span
+            >
             <select id="opt-undef">
               <option value="nondet">nondet</option>
               <option value="zero">zero</option>
@@ -264,7 +306,11 @@
           </label>
           <label>
             <span class="field-label">
-              <span>NaN behavior</span>
+              <span
+                class="param-help"
+                title="Set the behavior for payload-preserving floating-point NaN values. nondet: randomly choose a valid result (default). preferred: set the quiet bit and use an all-zero payload. quieting: set the quiet bit and copy the payload from a NaN input. unchanged: copy the quiet bit and payload from a NaN input. target-specific: set the quiet bit and pick a known target-specific payload."
+                >NaN behavior</span
+              >
               <a
                 class="doc-link inline"
                 href="https://llvm.org/docs/LangRef.html#floatnan"
@@ -285,15 +331,27 @@
           </label>
           <label class="check">
             <input id="opt-deterministic" type="checkbox" />
-            Deterministic
+            <span
+              class="param-help"
+              title="Disable interpreter-introduced non-determinism. This implies undef behavior zero and NaN behavior preferred. Off by default."
+              >Deterministic</span
+            >
           </label>
           <label class="check">
             <input id="opt-fuse" type="checkbox" />
-            Fuse fmuladd
+            <span
+              class="param-help"
+              title="Treat llvm.fmuladd.* as llvm.fma.*. This is the default. Otherwise, llvm.fmuladd is expanded into a * b + c."
+              >Fuse fmuladd</span
+            >
           </label>
           <label class="check">
             <input id="opt-verify" type="checkbox" />
-            Disable verifier
+            <span
+              class="param-help"
+              title="Disable validation of the input LLVM IR. The verifier runs by default; with this option, the user is responsible for the validity of inputs."
+              >Disable verifier</span
+            >
           </label>
         </div>
         <div class="params-actions">

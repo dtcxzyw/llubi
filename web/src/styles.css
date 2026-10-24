@@ -532,6 +532,16 @@ button:disabled {
   color: inherit;
 }
 
+.param-help {
+  cursor: help;
+  text-decoration: underline dotted var(--border-strong);
+  text-underline-offset: 3px;
+}
+
+.param-help:hover {
+  color: var(--text);
+}
+
 .entry-field {
   display: flex;
   flex-direction: column;

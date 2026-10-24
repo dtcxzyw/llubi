@@ -188,6 +188,48 @@ test('links parameters to the llubi and LangRef documentation', async ({ page })
   ).toBeVisible();
 });
 
+test('describes every parameter in a hover tooltip', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Parameters' }).click();
+
+  const expected = new Map([
+    ['Entry function', 'function named main'],
+    ['argv0', 'argv[0]'],
+    ['argv (one per line)', 'one argument per line'],
+    ['Max memory (MiB)', 'stack, heap, and global variables'],
+    ['Max steps', 'no limit'],
+    ['Max stack depth', '256'],
+    ['vscale', 'llvm.vscale'],
+    ['Random seed', 'default seed is 0'],
+    ['Undef behavior', 'freshly random'],
+    ['NaN behavior', 'target-specific'],
+    ['Deterministic', 'NaN behavior preferred'],
+    ['Fuse fmuladd', 'llvm.fma'],
+    ['Disable verifier', 'input LLVM IR'],
+  ]);
+  const helps = await page.locator('#params .param-help').evaluateAll(
+    (elements) =>
+      elements.map((element) => ({
+        label: element.textContent?.trim() ?? '',
+        help: element.getAttribute('title') ?? '',
+      })),
+  );
+
+  expect(helps).toHaveLength(expected.size);
+  expect(new Set(helps.map(({ label }) => label)).size).toBe(expected.size);
+  for (const { label, help } of helps) {
+    expect(expected.get(label), label).toBeDefined();
+    expect(help, label).toContain(expected.get(label));
+  }
+
+  const maxMemory = page.locator('#params .param-help', {
+    hasText: 'Max memory (MiB)',
+  });
+  await maxMemory.hover();
+  await expect(maxMemory).toHaveAttribute('title', /stack, heap/);
+});
+
 test('toggles LLVM IR line comments with Mod-/', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('#status')).toHaveClass(/status-ok/);
