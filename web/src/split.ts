@@ -18,6 +18,7 @@ export function setupSplitter(
     percent = clamp(value);
     leftPane.style.flex = `0 0 calc(${percent}% - ${SPLITTER_WIDTH / 2}px)`;
     splitter.setAttribute('aria-valuenow', String(Math.round(percent)));
+    splitter.setAttribute('aria-valuetext', `${Math.round(percent)}% editor width`);
   };
   apply(percent);
 
@@ -53,9 +54,17 @@ export function setupSplitter(
   });
 
   splitter.addEventListener('keydown', (event) => {
-    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    if (
+      event.key !== 'ArrowLeft' &&
+      event.key !== 'ArrowRight' &&
+      event.key !== 'Home' &&
+      event.key !== 'End'
+    )
+      return;
     event.preventDefault();
-    apply(percent + (event.key === 'ArrowLeft' ? -2 : 2));
+    if (event.key === 'Home') apply(MIN_PERCENT);
+    else if (event.key === 'End') apply(MAX_PERCENT);
+    else apply(percent + (event.key === 'ArrowLeft' ? -2 : 2));
     writeStorage(STORAGE_KEY, percent);
   });
 }
@@ -76,6 +85,10 @@ export function setupOutputSplitter(
     percent = Math.min(maxPercent, Math.max(minPercent, value));
     topPane.style.flex = `0 0 calc(${percent}% - ${SPLITTER_WIDTH / 2}px)`;
     splitter.setAttribute('aria-valuenow', String(Math.round(percent)));
+    splitter.setAttribute(
+      'aria-valuetext',
+      `${Math.round(percent)}% program output height`,
+    );
   };
   apply(percent);
 
@@ -108,9 +121,17 @@ export function setupOutputSplitter(
     writeStorage(OUTPUT_STORAGE_KEY, defaultPercent);
   });
   splitter.addEventListener('keydown', (event) => {
-    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+    if (
+      event.key !== 'ArrowUp' &&
+      event.key !== 'ArrowDown' &&
+      event.key !== 'Home' &&
+      event.key !== 'End'
+    )
+      return;
     event.preventDefault();
-    apply(percent + (event.key === 'ArrowDown' ? 2 : -2));
+    if (event.key === 'Home') apply(minPercent);
+    else if (event.key === 'End') apply(maxPercent);
+    else apply(percent + (event.key === 'ArrowDown' ? 2 : -2));
     writeStorage(OUTPUT_STORAGE_KEY, percent);
   });
 }

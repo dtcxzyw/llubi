@@ -30,6 +30,7 @@ const STORAGE_AUTO_RUN = 'llubi.auto-run';
 const STORAGE_THEME = 'llubi.theme';
 
 const runButton = byId<HTMLButtonElement>('run');
+const stopButton = byId<HTMLButtonElement>('stop');
 const modeAuto = byId<HTMLButtonElement>('mode-auto');
 const modeManual = byId<HTMLButtonElement>('mode-manual');
 const statusElement = byId<HTMLElement>('status');
@@ -38,6 +39,8 @@ const paramsPanel = byId<HTMLElement>('params');
 const langRefBar = byId<HTMLElement>('langref');
 const paramTooltip = byId<HTMLElement>('param-tooltip');
 const copyStatus = byId<HTMLElement>('copy-status');
+const skipLink = byId<HTMLAnchorElement>('skip-link');
+const paramHelpDescriptions = byId<HTMLElement>('param-help-descriptions');
 const licensesToggle = byId<HTMLButtonElement>('licenses-toggle');
 const licensesDialog = byId<HTMLDialogElement>('licenses-dialog');
 const licensesClose = byId<HTMLButtonElement>('licenses-close');
@@ -221,6 +224,11 @@ async function start(): Promise<void> {
     onEditorLineSelected,
   );
 
+  skipLink.addEventListener('click', (event) => {
+    event.preventDefault();
+    editor.view.focus();
+  });
+
   setupSplitter(splitElement, splitter, editorPane);
   setupOutputSplitter(outputElement, outputResizer, printOutput.parentElement!);
   applyOptionsToForm(options);
@@ -244,6 +252,7 @@ async function start(): Promise<void> {
   });
 
   runButton.addEventListener('click', () => runNow());
+  stopButton.addEventListener('click', stopRun);
   modeAuto.addEventListener('click', () => setRunMode(true));
   modeManual.addEventListener('click', () => setRunMode(false));
   paramsToggle.addEventListener('click', () => {
@@ -293,6 +302,11 @@ async function start(): Promise<void> {
   runCommandElement.addEventListener('click', () =>
     copyText(runCommandElement.textContent ?? '', copyRunButton),
   );
+  runCommandElement.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    copyText(runCommandElement.textContent ?? '', copyRunButton);
+  });
   copyChecksButton.addEventListener('click', () =>
     copyText(lastCheckLines, copyChecksButton),
   );
@@ -436,12 +450,24 @@ function setupTheme(): void {
   });
 }
 
-let parameterTooltipTimer: number | undefined;
+let parameterTooltipHideTimer: number | undefined;
+
+function cancelParameterTooltipHide(): void {
+  window.clearTimeout(parameterTooltipHideTimer);
+  parameterTooltipHideTimer = undefined;
+}
 
 function hideParameterTooltip(): void {
-  window.clearTimeout(parameterTooltipTimer);
-  parameterTooltipTimer = undefined;
+  cancelParameterTooltipHide();
   paramTooltip.hidden = true;
+}
+
+function scheduleParameterTooltipHide(control: HTMLElement): void {
+  cancelParameterTooltipHide();
+  parameterTooltipHideTimer = window.setTimeout(() => {
+    if (document.activeElement === control) return;
+    hideParameterTooltip();
+  }, 150);
 }
 
 function placeParameterTooltip(anchor: HTMLElement): void {
@@ -465,11 +491,10 @@ function placeParameterTooltip(anchor: HTMLElement): void {
 
 function showParameterTooltip(anchor: HTMLElement, text: string): void {
   if (paramsPanel.hidden) return;
-  window.clearTimeout(parameterTooltipTimer);
+  cancelParameterTooltipHide();
   paramTooltip.textContent = text;
   paramTooltip.hidden = false;
   placeParameterTooltip(anchor);
-  parameterTooltipTimer = window.setTimeout(hideParameterTooltip, 6000);
 }
 
 function setupParameterHelp(): void {
@@ -489,9 +514,8 @@ function setupParameterHelp(): void {
 
     const description = document.createElement('span');
     description.id = `param-help-${index}`;
-    description.className = 'sr-only';
     description.textContent = text;
-    document.body.append(description);
+    paramHelpDescriptions.append(description);
     const describedBy = control.getAttribute('aria-describedby');
     control.setAttribute(
       'aria-describedby',
@@ -499,9 +523,9 @@ function setupParameterHelp(): void {
     );
 
     help.addEventListener('pointerenter', () => showParameterTooltip(help, text));
-    help.addEventListener('pointerleave', () => {
-      if (document.activeElement !== control) hideParameterTooltip();
-    });
+    help.addEventListener('pointerleave', () =>
+      scheduleParameterTooltipHide(control),
+    );
     control.addEventListener('focus', () => showParameterTooltip(help, text));
     control.addEventListener('blur', hideParameterTooltip);
     control.addEventListener('keydown', (event) => {
@@ -966,6 +990,8 @@ function runNow(): void {
   const id = ++activeId;
   if (busy) destroyWorker();
   busy = true;
+  setRunning(true);
+  outputElement.setAttribute('aria-busy', 'true');
   setStatus('running...', 'running');
   outputMeta.textContent = '';
   setCheckLines('');
@@ -992,6 +1018,8 @@ function runNow(): void {
     activeId++;
     destroyWorker();
     busy = false;
+    setRunning(false);
+    outputElement.setAttribute('aria-busy', 'false');
     renderFatal('Execution exceeded the 10 second web timeout.');
     setStatus('timeout', 'error');
   }, 10_000);
@@ -1009,6 +1037,8 @@ function ensureWorker(): Worker {
     activeId++;
     destroyWorker();
     busy = false;
+    setRunning(false);
+    outputElement.setAttribute('aria-busy', 'false');
     renderFatal(event.message || 'The interpreter worker crashed.');
     setStatus('worker crashed', 'error');
   };
@@ -1019,6 +1049,8 @@ function handleWorkerMessage(message: WorkerResponse): void {
   if (message.id !== activeId) return;
   window.clearTimeout(runTimeout);
   busy = false;
+  setRunning(false);
+  outputElement.setAttribute('aria-busy', 'false');
   if (activeRunVersion !== inputVersion) {
     if (message.error) destroyWorker();
     return;
@@ -1036,6 +1068,34 @@ function handleWorkerMessage(message: WorkerResponse): void {
     return;
   }
   renderResult(message.result, activeRunOptions ?? options);
+}
+
+function setRunning(running: boolean): void {
+  if (!running && document.activeElement === stopButton) editor.view.focus();
+  stopButton.hidden = !running;
+}
+
+function stopRun(): void {
+  if (!busy) return;
+  window.clearTimeout(scheduled);
+  scheduled = undefined;
+  activeId++;
+  destroyWorker();
+  busy = false;
+  setRunning(false);
+  outputElement.setAttribute('aria-busy', 'false');
+  setCheckLines('');
+  editor.clearDiagnostics();
+  lastRunIR = '';
+  lastRunResult = null;
+  lastRunCrash = null;
+  updateReportButton();
+  outputMeta.textContent = '';
+  printOutput.replaceChildren(element('p', 'empty', 'No program output.'));
+  otherOutput.replaceChildren(
+    element('p', 'empty', 'Execution stopped.'),
+  );
+  setStatus('stopped', 'warn');
 }
 
 function destroyWorker(): void {
@@ -1915,7 +1975,9 @@ async function loadCompletionCatalog(): Promise<CompletionCatalog> {
 
 function showLicenseMessage(message: string, retry = false): void {
   const content = element('div', 'licenses-message');
-  content.append(element('p', 'empty', message));
+  const status = element('p', 'empty', message);
+  status.setAttribute('role', 'status');
+  content.append(status);
   if (retry) {
     const button = element('button', 'secondary', 'Try again');
     button.type = 'button';
@@ -1955,6 +2017,11 @@ function renderLicenseCatalog(catalog: LicenseCatalog): void {
     raw.href = component.raw;
     raw.target = '_blank';
     raw.rel = 'noreferrer';
+    raw.title = 'Open in a new tab';
+    raw.setAttribute(
+      'aria-label',
+      `Open raw license text for ${component.title} in a new tab`,
+    );
     raw.textContent = 'Open raw license text';
     section.append(raw);
     fragment.append(section);
@@ -1970,10 +2037,15 @@ function renderLicenseCatalog(catalog: LicenseCatalog): void {
     ),
   );
   const table = element('table', 'licenses-table');
+  table.append(
+    element('caption', 'sr-only', 'Frontend production packages and versions'),
+  );
   const head = document.createElement('thead');
   const headRow = document.createElement('tr');
   for (const title of ['Package', 'Version', 'License']) {
-    headRow.append(element('th', '', title));
+    const heading = element('th', '', title);
+    heading.scope = 'col';
+    headRow.append(heading);
   }
   head.append(headRow);
   const body = document.createElement('tbody');
@@ -2125,6 +2197,7 @@ function renderBuildInfo(info: BuildInfo): void {
     link.href = `https://github.com/llvm/llvm-project/commit/${info.llvmCommit}`;
     link.target = '_blank';
     link.rel = 'noreferrer';
+    link.title = 'Open this LLVM commit in a new tab';
     link.textContent = info.llvmCommitShort || info.llvmCommit.slice(0, 12);
     buildInfoElement.append(link);
   } else {

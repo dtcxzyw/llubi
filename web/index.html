@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
+    <meta
+      name="description"
+      content="Run LLVM IR in the browser with llubi, LLVM's UB-aware interpreter."
+    />
     <script>
       (() => {
         const choices = ['light', 'dark', 'colorblind', 'high-contrast'];
@@ -23,12 +27,13 @@
     <title>llubi playground</title>
   </head>
   <body>
+    <a id="skip-link" class="skip-link" href="#editor">Skip to LLVM IR editor</a>
     <div id="app">
       <header class="topbar">
-        <div class="brand">
+        <h1 class="brand">
           <span class="brand-mark">llubi</span>
           <span class="brand-sub">playground</span>
-        </div>
+        </h1>
         <div class="build-info" id="build-info">loading build info...</div>
         <div class="topbar-actions">
           <label class="theme-picker">
@@ -50,6 +55,7 @@
             href="https://github.com/dtcxzyw/llubi"
             target="_blank"
             rel="noreferrer"
+            title="Open the llubi source repository in a new tab"
             >Source</a
           >
           <button
@@ -71,6 +77,7 @@
           class="mode-switch"
           role="group"
           aria-label="Run mode"
+          aria-describedby="run-mode-help"
           title="Auto-run executes after edits stop; Ctrl/Cmd+Enter always runs immediately."
         >
           <button
@@ -90,14 +97,31 @@
             Manual
           </button>
         </div>
-        <button id="run" class="primary" type="button" hidden title="Run (Ctrl/Cmd+Enter)">
+        <span id="run-mode-help" class="sr-only"
+          >Auto-run executes after edits stop. Control or Command plus Enter always
+          runs immediately.</span
+        >
+        <button
+          id="run"
+          class="primary"
+          type="button"
+          hidden
+          title="Run (Ctrl/Cmd+Enter)"
+          aria-keyshortcuts="Control+Enter Meta+Enter"
+        >
           Run
         </button>
+        <button id="stop" class="secondary" type="button" hidden>Stop</button>
         <div
           class="run-command-wrap"
           title="Command for the current run, ready to paste into a lit test"
         >
-          <code id="run-command" class="run-command">; RUN: llubi --verbose &lt; %s 2&gt;&amp;1 | FileCheck %s</code>
+          <code
+            id="run-command"
+            class="run-command"
+            tabindex="0"
+            aria-label="Test command; press Enter or Space to copy"
+          >; RUN: llubi --verbose &lt; %s 2&gt;&amp;1 | FileCheck %s</code>
           <button id="copy-run" class="copy-button" type="button" aria-label="Copy test command">
             copy
           </button>
@@ -383,6 +407,7 @@
       </section>
 
       <main id="split" class="split">
+        <div id="param-help-descriptions" class="sr-only"></div>
         <section class="pane editor-pane" aria-label="LLVM IR editor">
           <div class="pane-header">
             <span class="pane-title-group">
@@ -471,7 +496,9 @@
           class="splitter"
           role="separator"
           aria-orientation="vertical"
-          aria-label="Resize panes"
+          aria-label="Resize editor and output panes"
+          aria-valuemin="20"
+          aria-valuemax="80"
           tabindex="0"
         ></div>
         <section class="pane output-pane" aria-label="Execution output">
@@ -509,7 +536,7 @@
               </button>
             </span>
           </div>
-          <div id="output" class="output-split" aria-live="polite">
+          <div id="output" class="output-split">
             <section class="output-section print-section">
               <div class="output-section-header">Program output</div>
               <div id="print-output" class="output-scroll"></div>
@@ -519,7 +546,7 @@
               class="output-resizer"
               role="separator"
               aria-orientation="horizontal"
-              aria-label="Resize print output"
+              aria-label="Resize program output and interpreter output"
               aria-valuemin="15"
               aria-valuemax="85"
               tabindex="0"
@@ -538,11 +565,12 @@
       id="licenses-dialog"
       class="licenses-dialog"
       aria-labelledby="licenses-title"
+      aria-describedby="licenses-subtitle"
     >
       <div class="licenses-head">
         <div>
           <h2 id="licenses-title">Third-party licenses</h2>
-          <p class="licenses-subtitle">
+          <p id="licenses-subtitle" class="licenses-subtitle">
             Components redistributed by the playground and their license texts.
           </p>
         </div>

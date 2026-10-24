@@ -176,6 +176,39 @@ test('fills the viewport and starts with centered panes', async ({ page }) => {
   expect(Math.abs(metrics.left - metrics.right)).toBeLessThanOrEqual(8);
 });
 
+test('stops a running interpreter', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Manual' }).click();
+
+  const source = `define i32 @main() {
+entry:
+  br label %loop
+loop:
+  %i = phi i32 [ 0, %entry ], [ %next, %loop ]
+  %next = add i32 %i, 1
+  br label %loop
+}
+`;
+  const editor = page.locator('.cm-content');
+  await editor.click();
+  await page.keyboard.press('Control+A');
+  await page.keyboard.insertText(source);
+  await page.getByRole('button', { name: 'Parameters' }).click();
+  await page.locator('#opt-max-steps').fill('4294967295');
+  await page.getByRole('button', { name: 'Parameters' }).click();
+
+  await page.locator('#run').click();
+  await expect(page.locator('#stop')).toBeVisible();
+  await page.locator('#stop').click();
+  await expect(page.locator('#status')).toHaveText('stopped');
+  await expect(page.locator('#other-output')).toContainText(
+    'Execution stopped.',
+  );
+  await expect(page.locator('#stop')).toBeHidden();
+  await expect(editor).toBeFocused();
+});
+
 test('hides Run while auto-run is active', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('#status')).toHaveClass(/status-ok/);

@@ -380,6 +380,8 @@ export function createEditor(
         indentUnit.of('  '),
         indentService.of(llvmIndent),
         EditorView.contentAttributes.of({
+          'aria-label': 'LLVM IR editor',
+          tabindex: '0',
           'data-gramm': 'false',
           'data-gramm_editor': 'false',
           'data-enable-grammarly': 'false',

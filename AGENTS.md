@@ -80,7 +80,8 @@ used automatically when available.
   none are documented. Names not documented in LangRef, such as coroutine
   intrinsics, are not indexed.
 - Auto/Manual mode switch: Auto hides the Run button and reruns after edits;
-  Manual exposes an explicit Run action. Ctrl/Cmd+Enter always runs.
+  Manual exposes an explicit Run action. Ctrl/Cmd+Enter always runs, and a Stop
+  action appears while a run is in progress.
 - The theme picker follows the system light/dark appearance by default and also
   offers explicit light, dark, colorblind-friendly, and high-contrast themes;
   the System option shows the resolved appearance, the choice is stored
@@ -88,11 +89,14 @@ used automatically when available.
   text and control-boundary contrast, with the high-contrast text palette
   exceeding AAA, and typography scales to 200% without losing access to content.
 - Execution happens in a Web Worker; a new edit supersedes an in-flight run,
-  and long runs are killed after 10 seconds.
+  users can stop a run explicitly, and long runs are killed after 10 seconds.
 - Verbose trace rows jump to their instruction, call site, function, or label in
   the editor; clicking a source line or line number jumps back to the matching
   trace row. Examples, program output, and trace rows use roving tab stops, with
   arrow keys moving within each list.
+- The page exposes a named IR editor and a skip link, shows focus indicators on
+  every control, uses target-sized standalone actions and enlarged separator hit
+  areas, and announces concise status changes instead of the entire output.
 - The Examples drawer lists two built-in samples first and then every `.ll` test
   from `llvm/test/tools/llubi`, with check lines stripped. RUN lines are kept
   for context and the first RUN line is parsed into playground options when

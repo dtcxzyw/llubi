@@ -170,6 +170,30 @@ button {
   cursor: pointer;
 }
 
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 1000;
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(calc(-100% - 16px));
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
 .text-link {
   color: var(--accent);
   text-decoration: none;
@@ -177,6 +201,13 @@ button {
 
 .text-link:hover {
   text-decoration: underline;
+}
+
+.topbar-actions .text-link,
+.license-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
 }
 
 .license-link {
@@ -279,10 +310,12 @@ button {
 }
 
 .licenses-section summary {
+  min-height: 1.5rem;
   cursor: pointer;
   color: var(--accent);
   font-size: 0.75rem;
   font-weight: 600;
+  line-height: 1.5rem;
 }
 
 .license-text {
@@ -300,7 +333,9 @@ button {
 }
 
 .license-raw {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
   margin-top: 7px;
   color: var(--accent);
   font-size: 0.75rem;
@@ -349,6 +384,10 @@ button {
   display: flex;
   align-items: baseline;
   gap: 8px;
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: 1.2;
   white-space: nowrap;
 }
 
@@ -439,9 +478,17 @@ button {
   background: var(--panel);
 }
 
+.run-command:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .run-command {
+  display: flex;
+  align-items: center;
   flex: 1;
   min-width: 0;
+  min-height: 1.5rem;
   overflow-x: auto;
   color: var(--muted);
   cursor: pointer;
@@ -649,6 +696,9 @@ button:disabled {
 }
 
 .doc-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
   color: var(--accent);
   font-size: 0.75rem;
   text-decoration: none;
@@ -1214,6 +1264,11 @@ button:disabled {
   color: var(--text);
 }
 
+.editor-host .cm-editor.cm-focused {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .editor-host .cm-scroller {
   font-family: var(--font-mono);
   font-size: 0.8125rem;
@@ -1326,13 +1381,18 @@ button:disabled {
 .splitter::after {
   content: '';
   position: absolute;
-  inset: 0 3px;
+  inset: 0 -9px;
   background: transparent;
 }
 
 .splitter:hover,
 .splitter:focus-visible {
   background: var(--accent);
+}
+
+.splitter:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .resizing {
@@ -1388,6 +1448,7 @@ button:disabled {
 }
 
 .output-resizer {
+  position: relative;
   flex: 0 0 7px;
   cursor: row-resize;
   background: var(--border-strong);
@@ -1395,9 +1456,33 @@ button:disabled {
   touch-action: none;
 }
 
+.output-resizer::after {
+  content: '';
+  position: absolute;
+  inset: -9px 0;
+  background: transparent;
+}
+
 .output-resizer:hover,
 .output-resizer:focus-visible {
   background: var(--accent);
+}
+
+.output-resizer:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+@media (forced-colors: active) {
+  .splitter,
+  .output-resizer {
+    background: ButtonText;
+  }
+
+  .splitter:focus-visible,
+  .output-resizer:focus-visible {
+    outline-color: Highlight;
+  }
 }
 
 .resizing-output {

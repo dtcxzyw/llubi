@@ -200,3 +200,74 @@ test('keeps content usable at 200% text size', async ({ page }) => {
     .scrollIntoViewIfNeeded();
   await expect(page.locator('.other-section .output-section-header')).toBeVisible();
 });
+
+test('provides a named editor, a level-one heading, and skip navigation', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+
+  const editor = page.locator('.cm-content');
+  await expect(editor).toHaveAttribute('aria-label', 'LLVM IR editor');
+  await expect(
+    page.getByRole('heading', { level: 1, name: /llubi playground/i }),
+  ).toBeVisible();
+
+  await page.keyboard.press('Tab');
+  const skip = page.getByRole('link', { name: 'Skip to LLVM IR editor' });
+  await expect(skip).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(editor).toBeFocused();
+});
+
+test('describes the licenses dialog and exposes separator values', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+
+  const dialog = page.getByRole('dialog', { name: 'Third-party licenses' });
+  await page.getByRole('button', { name: 'Licenses' }).click();
+  await expect(dialog).toHaveAccessibleDescription(
+    'Components redistributed by the playground and their license texts.',
+  );
+  await page.keyboard.press('Escape');
+
+  const splitter = page.locator('#splitter');
+  await expect(splitter).toHaveAttribute('aria-valuemin', '20');
+  await expect(splitter).toHaveAttribute('aria-valuemax', '80');
+  await expect(splitter).toHaveAttribute('aria-valuetext', /editor width/);
+  await splitter.focus();
+  await page.keyboard.press('Home');
+  await expect(splitter).toHaveAttribute('aria-valuenow', '20');
+  await page.keyboard.press('End');
+  await expect(splitter).toHaveAttribute('aria-valuenow', '80');
+
+  const resizer = page.locator('#output-resizer');
+  await expect(resizer).toHaveAttribute('aria-valuemin', '15');
+  await expect(resizer).toHaveAttribute('aria-valuemax', '85');
+  await expect(resizer).toHaveAttribute('aria-valuetext', /program output height/);
+});
+
+test('keeps the full output out of a live region', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await expect(page.locator('#output')).not.toHaveAttribute('aria-live', 'polite');
+});
+
+test('uses target-sized standalone links in the header and parameter help', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Parameters' }).click();
+
+  for (const locator of [
+    page.getByRole('link', { name: 'Source' }),
+    page.getByRole('button', { name: 'Licenses' }),
+    page.locator('a.doc-link.inline'),
+  ]) {
+    const box = await locator.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(24);
+  }
+});
