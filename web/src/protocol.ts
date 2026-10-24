@@ -114,6 +114,35 @@ export interface CompletionCatalog {
   libcalls: string[];
 }
 
+export interface LicenseComponent {
+  id: string;
+  title: string;
+  description: string;
+  license: string;
+  raw: string;
+  text: string;
+}
+
+export interface LicensePackage {
+  name: string;
+  version: string;
+  license: string;
+}
+
+export interface LicenseGroup {
+  license: string;
+  text: string;
+  packages: Array<{ name: string; version: string }>;
+}
+
+export interface LicenseCatalog {
+  core: LicenseComponent[];
+  frontend: {
+    packages: LicensePackage[];
+    licenseGroups: LicenseGroup[];
+  };
+}
+
 export interface LangRefIndex {
   baseUrl: string;
   instructions: Record<string, string>;

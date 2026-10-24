@@ -13,6 +13,7 @@ import type {
   ExampleEntry,
   LangRefIndex,
   LangRefReference,
+  LicenseCatalog,
   RunOptions,
   RunResult,
   TraceEntry,
@@ -37,6 +38,10 @@ const paramsPanel = byId<HTMLElement>('params');
 const langRefBar = byId<HTMLElement>('langref');
 const paramTooltip = byId<HTMLElement>('param-tooltip');
 const copyStatus = byId<HTMLElement>('copy-status');
+const licensesToggle = byId<HTMLButtonElement>('licenses-toggle');
+const licensesDialog = byId<HTMLDialogElement>('licenses-dialog');
+const licensesClose = byId<HTMLButtonElement>('licenses-close');
+const licensesBody = byId<HTMLElement>('licenses-body');
 const paramsReset = byId<HTMLButtonElement>('params-reset');
 const entryInput = byId<HTMLInputElement>('opt-entry');
 const entryCombo = byId<HTMLElement>('entry-combo');
@@ -176,6 +181,8 @@ let lastRunCrash: string | null = null;
 let currentBuildInfo: BuildInfo | null = null;
 let langRefIndex: LangRefIndex | null = null;
 let langRefLoaded = false;
+let licenseCatalog: LicenseCatalog | null = null;
+let licenseCatalogPromise: Promise<LicenseCatalog> | null = null;
 let testExamples: ExampleEntry[] = [];
 let examplesLoaded = false;
 let examplesLoading = false;
@@ -293,6 +300,15 @@ async function start(): Promise<void> {
     copyText(buildFullTest(), generateTestButton),
   );
   reportBugButton.addEventListener('click', openBugReport);
+  licensesToggle.addEventListener('click', openLicensesDialog);
+  licensesClose.addEventListener('click', () => licensesDialog.close());
+  licensesDialog.addEventListener('click', (event) => {
+    if (event.target === licensesDialog) licensesDialog.close();
+  });
+  licensesDialog.addEventListener('close', () => {
+    licensesToggle.setAttribute('aria-expanded', 'false');
+    licensesToggle.focus();
+  });
 
   for (const input of Object.values(optionInputs)) {
     input.addEventListener('input', onOptionsChanged);
@@ -1894,6 +1910,168 @@ async function loadCompletionCatalog(): Promise<CompletionCatalog> {
       intrinsics: [],
       libcalls: [],
     };
+  }
+}
+
+function showLicenseMessage(message: string, retry = false): void {
+  const content = element('div', 'licenses-message');
+  content.append(element('p', 'empty', message));
+  if (retry) {
+    const button = element('button', 'secondary', 'Try again');
+    button.type = 'button';
+    button.addEventListener('click', () => {
+      licenseCatalogPromise = null;
+      showLicenseMessage('Loading third-party licenses…');
+      void loadLicenseCatalog();
+    });
+    content.append(button);
+  }
+  licensesBody.replaceChildren(content);
+}
+
+function renderLicenseCatalog(catalog: LicenseCatalog): void {
+  const fragment = document.createDocumentFragment();
+  fragment.append(
+    element(
+      'p',
+      'licenses-intro',
+      'The deployed playground includes the components below. Frontend package data is generated at build time from the installed production dependencies.',
+    ),
+  );
+
+  for (const component of catalog.core) {
+    const section = element('section', 'licenses-section');
+    section.append(
+      element('h3', '', component.title),
+      element('p', '', component.description),
+      element('p', 'licenses-meta', `License: ${component.license}`),
+    );
+    const details = document.createElement('details');
+    const summary = element('summary', '', `View ${component.license} license text`);
+    details.append(summary, element('pre', 'license-text', component.text));
+    section.append(details);
+    const raw = document.createElement('a');
+    raw.className = 'license-raw';
+    raw.href = component.raw;
+    raw.target = '_blank';
+    raw.rel = 'noreferrer';
+    raw.textContent = 'Open raw license text';
+    section.append(raw);
+    fragment.append(section);
+  }
+
+  const frontend = element('section', 'licenses-section');
+  frontend.append(
+    element('h3', '', 'Frontend packages'),
+    element(
+      'p',
+      'licenses-meta',
+      `${catalog.frontend.packages.length} production packages from the web bundle.`,
+    ),
+  );
+  const table = element('table', 'licenses-table');
+  const head = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  for (const title of ['Package', 'Version', 'License']) {
+    headRow.append(element('th', '', title));
+  }
+  head.append(headRow);
+  const body = document.createElement('tbody');
+  for (const pkg of catalog.frontend.packages) {
+    const row = document.createElement('tr');
+    row.append(
+      element('td', '', pkg.name),
+      element('td', '', pkg.version),
+      element('td', '', pkg.license),
+    );
+    body.append(row);
+  }
+  table.append(head, body);
+  frontend.append(table);
+
+  for (const group of catalog.frontend.licenseGroups) {
+    const details = document.createElement('details');
+    details.append(
+      element(
+        'summary',
+        '',
+        `${group.license} license text (${group.packages.length} packages)`,
+      ),
+      element('pre', 'license-text', group.text),
+    );
+    frontend.append(details);
+  }
+  fragment.append(frontend);
+
+  const notes = element('section', 'licenses-section');
+  notes.append(
+    element('h3', '', 'Notes'),
+    element(
+      'p',
+      '',
+      "Emscripten's default allocator includes dlmalloc by Doug Lea, released to the public domain under CC0. No attribution is required for dlmalloc.",
+    ),
+    element(
+      'p',
+      '',
+      "LLVM's license file explains how third-party files inside its source tree identify their own notices; those per-file terms remain applicable.",
+    ),
+    element(
+      'p',
+      '',
+      'LLVM is a trademark of the LLVM Foundation. This project is an independent playground and is not affiliated with or endorsed by the LLVM Project or the LLVM Foundation.',
+    ),
+  );
+  fragment.append(notes);
+  licensesBody.replaceChildren(fragment);
+}
+
+function isLicenseCatalog(value: unknown): value is LicenseCatalog {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<LicenseCatalog>;
+  return (
+    Array.isArray(candidate.core) &&
+    !!candidate.frontend &&
+    Array.isArray(candidate.frontend.packages) &&
+    Array.isArray(candidate.frontend.licenseGroups)
+  );
+}
+
+async function loadLicenseCatalog(): Promise<void> {
+  if (licenseCatalog) {
+    renderLicenseCatalog(licenseCatalog);
+    return;
+  }
+  if (licenseCatalogPromise) return;
+  const request = (async () => {
+    const response = await fetch(new URL('licenses.json', document.baseURI), {
+      cache: 'no-cache',
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = (await response.json()) as unknown;
+    if (!isLicenseCatalog(data)) throw new Error('invalid license catalog');
+    return data;
+  })();
+  licenseCatalogPromise = request;
+  try {
+    licenseCatalog = await request;
+    renderLicenseCatalog(licenseCatalog);
+  } catch (error) {
+    licenseCatalogPromise = null;
+    console.warn('third-party license catalog is unavailable', error);
+    showLicenseMessage('Third-party license data is unavailable.', true);
+  }
+}
+
+function openLicensesDialog(): void {
+  if (licensesDialog.open) return;
+  licensesToggle.setAttribute('aria-expanded', 'true');
+  licensesDialog.showModal();
+  licensesClose.focus();
+  if (licenseCatalog) renderLicenseCatalog(licenseCatalog);
+  else {
+    showLicenseMessage('Loading third-party licenses…');
+    void loadLicenseCatalog();
   }
 }
 

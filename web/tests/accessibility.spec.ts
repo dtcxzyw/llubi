@@ -151,7 +151,7 @@ test('keeps content usable at 200% text size', async ({ page }) => {
 
   await expect(page.locator('#theme-select')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Source' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Licenses' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Licenses' })).toBeVisible();
   const widths = await page.evaluate(() => ({
     scroll: document.documentElement.scrollWidth,
     client: document.documentElement.clientWidth,

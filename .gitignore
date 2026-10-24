@@ -228,7 +228,7 @@ web/public/build-info.json
 web/public/completions.json
 web/public/examples.json
 web/public/langref.json
-web/public/licenses.html
+web/public/licenses.json
 web/public/licenses/
 web/test-results/
 web/playwright-report/

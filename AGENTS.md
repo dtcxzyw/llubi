@@ -123,9 +123,9 @@ used automatically when available.
   `Stacktrace:` frames. This keeps the LLVM checkout unmodified.
 - `web/public/build-info.json`, `web/public/completions.json`,
   `web/public/examples.json`, `web/public/langref.json`,
-  `web/public/licenses.html`, and `web/public/licenses/` are generated at build
-  time. The build info is shown in the header; the header's Licenses link opens
-  the generated third-party license page.
+  `web/public/licenses.json`, and `web/public/licenses/` are generated at build
+  time. The build info is shown in the header; the header's Licenses button opens
+  the generated third-party license modal.
 
 ```bash
 cd web

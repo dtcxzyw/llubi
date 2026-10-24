@@ -52,12 +52,17 @@
             rel="noreferrer"
             >Source</a
           >
-          <a
-            class="text-link"
-            href="licenses.html"
+          <button
+            id="licenses-toggle"
+            class="text-link license-link"
+            type="button"
+            aria-haspopup="dialog"
+            aria-controls="licenses-dialog"
+            aria-expanded="false"
             title="Third-party licenses"
-            >Licenses</a
           >
+            Licenses
+          </button>
         </div>
       </header>
 
@@ -529,6 +534,29 @@
     </div>
     <div id="param-tooltip" class="param-tooltip" role="tooltip" hidden></div>
     <span id="copy-status" class="sr-only" role="status" aria-live="polite"></span>
+    <dialog
+      id="licenses-dialog"
+      class="licenses-dialog"
+      aria-labelledby="licenses-title"
+    >
+      <div class="licenses-head">
+        <div>
+          <h2 id="licenses-title">Third-party licenses</h2>
+          <p class="licenses-subtitle">
+            Components redistributed by the playground and their license texts.
+          </p>
+        </div>
+        <button
+          id="licenses-close"
+          class="copy-button"
+          type="button"
+          aria-label="Close licenses"
+        >
+          close
+        </button>
+      </div>
+      <div id="licenses-body" class="licenses-body"></div>
+    </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
