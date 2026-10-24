@@ -114,6 +114,23 @@ export interface CompletionCatalog {
   libcalls: string[];
 }
 
+export interface LangRefIndex {
+  baseUrl: string;
+  instructions: Record<string, string>;
+  intrinsics: Record<string, string>;
+  keywords: Record<string, string>;
+  metadata: Record<string, string>;
+  instructionKeywords: Record<string, string[]>;
+}
+
+export type LangRefKind = 'instruction' | 'intrinsic' | 'keyword' | 'metadata';
+
+export interface LangRefReference {
+  label: string;
+  kind: LangRefKind;
+  anchor: string;
+}
+
 export interface ExampleEntry {
   name: string;
   ir: string;

@@ -11,6 +11,8 @@ import type {
   Diagnostic,
   ExampleCatalog,
   ExampleEntry,
+  LangRefIndex,
+  LangRefReference,
   RunOptions,
   RunResult,
   TraceEntry,
@@ -32,6 +34,7 @@ const modeManual = byId<HTMLButtonElement>('mode-manual');
 const statusElement = byId<HTMLElement>('status');
 const paramsToggle = byId<HTMLButtonElement>('params-toggle');
 const paramsPanel = byId<HTMLElement>('params');
+const langRefBar = byId<HTMLElement>('langref');
 const paramsReset = byId<HTMLButtonElement>('params-reset');
 const entryInput = byId<HTMLInputElement>('opt-entry');
 const entryCombo = byId<HTMLElement>('entry-combo');
@@ -169,6 +172,7 @@ let lastRunOptions: RunOptions = options;
 let lastRunResult: RunResult | null = null;
 let lastRunCrash: string | null = null;
 let currentBuildInfo: BuildInfo | null = null;
+let langRefIndex: LangRefIndex | null = null;
 let testExamples: ExampleEntry[] = [];
 let examplesLoaded = false;
 let examplesLoading = false;
@@ -192,7 +196,11 @@ void start();
 async function start(): Promise<void> {
   setupTheme();
   void loadBuildInfo();
-  const catalog = await loadCompletionCatalog();
+  const [catalog, langref] = await Promise.all([
+    loadCompletionCatalog(),
+    loadLangRefIndex(),
+  ]);
+  langRefIndex = langref;
   highlightLlvm = createLlvmHighlighter(catalog);
   editor = createEditor(
     byId('editor'),
@@ -200,6 +208,7 @@ async function start(): Promise<void> {
     onEditorChange,
     catalog,
     revealTraceForLine,
+    updateLangRefForLine,
   );
 
   setupSplitter(splitElement, splitter, editorPane);
@@ -208,6 +217,7 @@ async function start(): Promise<void> {
   applyRunMode(autoRun);
   updateEditorMeta(initialIR);
   updateEntryFunctions(initialIR);
+  updateLangRefForLine(1);
   renderEmpty();
   updateRunCommand(options, null);
   setCheckLines('');
@@ -1246,6 +1256,144 @@ function activateTraceRow(row: HTMLElement): void {
   row.classList.add('is-active');
 }
 
+function stripIrCommentAndStrings(line: string): string {
+  let result = '';
+  let inString = false;
+  let escaped = false;
+  for (const character of line) {
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (character === '\\') escaped = true;
+      else if (character === '"') inString = false;
+      continue;
+    }
+    if (character === '"') {
+      inString = true;
+      continue;
+    }
+    if (character === ';') break;
+    result += character;
+  }
+  return result;
+}
+
+function intrinsicAnchor(name: string, index: LangRefIndex): string | null {
+  let candidate = name;
+  while (candidate.includes('.')) {
+    if (index.intrinsics[candidate]) return index.intrinsics[candidate];
+    candidate = candidate.slice(0, candidate.lastIndexOf('.'));
+  }
+  return index.intrinsics[candidate] ?? null;
+}
+
+function collectLangRefReferences(
+  line: string,
+  index: LangRefIndex,
+): LangRefReference[] {
+  const code = stripIrCommentAndStrings(line);
+  const wordPattern = /[A-Za-z_][A-Za-z0-9_.]*/g;
+  const instructionAnchors = new Map<string, string>();
+  for (const match of code.matchAll(wordPattern)) {
+    const position = match.index ?? 0;
+    const before = code[position - 1] ?? '';
+    if (before === '@' || before === '%' || before === '!' || before === '.')
+      continue;
+    if (code[position + match[0].length] === ':') continue;
+    const anchor = index.instructions[match[0]];
+    if (anchor) instructionAnchors.set(match[0], anchor);
+  }
+
+  const matches: Array<{ position: number; reference: LangRefReference }> = [];
+  const seen = new Set<string>();
+  const add = (
+    position: number,
+    kind: LangRefReference['kind'],
+    label: string,
+    anchor: string,
+  ) => {
+    const key = `${kind}:${label}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    matches.push({ position, reference: { label, kind, anchor } });
+  };
+
+  for (const match of code.matchAll(/@llvm\.[A-Za-z0-9_.$]+/g)) {
+    const name = match[0].slice(1);
+    const anchor = intrinsicAnchor(name, index);
+    if (anchor) add(match.index ?? 0, 'intrinsic', `@${name}`, anchor);
+  }
+
+  for (const match of code.matchAll(/!([A-Za-z][A-Za-z0-9_.]*)/g)) {
+    const name = match[1];
+    const anchor = index.metadata[name];
+    if (anchor) add(match.index ?? 0, 'metadata', `!${name}`, anchor);
+  }
+
+  for (const match of code.matchAll(wordPattern)) {
+    const position = match.index ?? 0;
+    const before = code[position - 1] ?? '';
+    if (before === '@' || before === '%' || before === '!' || before === '.')
+      continue;
+    if (code[position + match[0].length] === ':') continue;
+    const word = match[0];
+    const instruction = index.instructions[word];
+    if (instruction) {
+      add(position, 'instruction', word, instruction);
+      continue;
+    }
+    const keyword = index.keywords[word];
+    if (keyword) {
+      add(position, 'keyword', word, keyword);
+      continue;
+    }
+    const owners = index.instructionKeywords[word];
+    const owner = owners?.find((name) => instructionAnchors.has(name));
+    if (owner) {
+      add(position, 'keyword', word, instructionAnchors.get(owner) ?? '');
+    }
+  }
+
+  matches.sort((left, right) => left.position - right.position);
+  return matches.map(({ reference }) => reference);
+}
+
+function updateLangRefForLine(line: number): void {
+  if (!langRefIndex) {
+    langRefBar.hidden = true;
+    return;
+  }
+  if (line < 1 || line > editor.view.state.doc.lines) {
+    langRefBar.hidden = true;
+    return;
+  }
+  const references = collectLangRefReferences(
+    editor.view.state.doc.line(line).text,
+    langRefIndex,
+  );
+  if (references.length === 0) {
+    langRefBar.replaceChildren();
+    langRefBar.hidden = true;
+    return;
+  }
+
+  const index = langRefIndex;
+  langRefBar.replaceChildren(
+    element('span', 'langref-label', 'LangRef'),
+    ...references.map((reference) => {
+      const link = document.createElement('a');
+      link.className = `langref-link langref-${reference.kind}`;
+      link.href = `${index.baseUrl}#${encodeURIComponent(reference.anchor)}`;
+      link.target = '_blank';
+      link.rel = 'noreferrer';
+      link.textContent = reference.label;
+      link.title = `Open ${reference.kind} ${reference.label} in the LLVM LangRef`;
+      return link;
+    }),
+  );
+  langRefBar.setAttribute('aria-label', `LangRef references for line ${line}`);
+  langRefBar.hidden = false;
+}
+
 function revealTraceForLine(line: number): boolean {
   const rows = otherOutput.querySelectorAll<HTMLElement>('.trace-row');
   for (const row of rows) {
@@ -1350,6 +1498,30 @@ async function loadCompletionCatalog(): Promise<CompletionCatalog> {
       intrinsics: [],
       libcalls: [],
     };
+  }
+}
+
+async function loadLangRefIndex(): Promise<LangRefIndex | null> {
+  try {
+    const response = await fetch(new URL('langref.json', document.baseURI), {
+      cache: 'no-cache',
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const index = (await response.json()) as LangRefIndex;
+    if (
+      typeof index.baseUrl !== 'string' ||
+      typeof index.instructions !== 'object' ||
+      typeof index.intrinsics !== 'object' ||
+      typeof index.keywords !== 'object' ||
+      typeof index.metadata !== 'object' ||
+      typeof index.instructionKeywords !== 'object'
+    ) {
+      throw new Error('invalid LangRef index');
+    }
+    return index;
+  } catch (error) {
+    console.warn('LangRef index is unavailable', error);
+    return null;
   }
 }
 

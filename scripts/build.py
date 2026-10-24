@@ -256,6 +256,21 @@ def generate_completions(llvm_source: Path, build_dir: Path) -> None:
     )
 
 
+def generate_langref(llvm_source: Path) -> None:
+    run(
+        [
+            sys.executable,
+            str(SCRIPTS / "gen_langref.py"),
+            "--llvm-source",
+            str(llvm_source),
+            "--output",
+            str(WEB_PUBLIC / "langref.json"),
+            "--completions",
+            str(WEB_PUBLIC / "completions.json"),
+        ]
+    )
+
+
 def generate_examples(llvm_source: Path) -> None:
     run(
         [
@@ -391,6 +406,7 @@ def main() -> None:
 
     generate_completions(llvm_source, build_dir)
     generate_examples(llvm_source)
+    generate_langref(llvm_source)
     if not args.no_copy:
         stage_artifacts(build_dir)
     write_build_info(llvm_source, build_dir)

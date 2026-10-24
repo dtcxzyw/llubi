@@ -295,6 +295,88 @@ test('offers generated metadata completions', async ({ page }) => {
   await expect(popup).toContainText('!dbg');
 });
 
+test('shows LangRef links for instruction, intrinsic, keyword, and metadata tokens', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.getByRole('button', { name: 'Manual' }).click();
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('Control+A');
+  await page.keyboard.insertText(`define i32 @main() {
+  %r = call i32 @llvm.abs.i32(i32 -1, i1 false)
+  %p = getelementptr inbounds i8, ptr null, i64 0
+  %v = load i32, ptr null, !range !0
+  ret i32 %v
+}
+!0 = !{ i32 0, i32 1 }
+`);
+
+  const bar = page.locator('#langref');
+  await page.locator('.cm-line', { hasText: '@llvm.abs' }).click();
+  await expect(bar).toBeVisible();
+  await expect(bar.locator('.langref-link', { hasText: 'call' })).toHaveAttribute(
+    'href',
+    /#i-call$/,
+  );
+  await expect(
+    bar.locator('.langref-link', { hasText: '@llvm.abs.i32' }),
+  ).toHaveAttribute('href', /#int-abs$/);
+
+  await page.locator('.cm-line', { hasText: '!range !0' }).click();
+  await expect(
+    bar.locator('.langref-link', { hasText: 'load' }),
+  ).toHaveAttribute('href', /#i-load$/);
+  await expect(
+    bar.locator('.langref-link', { hasText: '!range' }),
+  ).toHaveAttribute('href', /#range-metadata$/);
+
+  await page.locator('.cm-line', { hasText: 'getelementptr inbounds' }).click();
+  await expect(
+    bar.locator('.langref-link', { hasText: 'inbounds' }),
+  ).toHaveAttribute('href', /#i-getelementptr$/);
+
+  const widths = await page.evaluate(() => ({
+    editor: document.querySelector('#editor')!.getBoundingClientRect().width,
+    bar: document.querySelector('#langref')!.getBoundingClientRect().width,
+  }));
+  expect(Math.abs(widths.editor - widths.bar)).toBeLessThanOrEqual(1);
+
+  await page.locator('.cm-line', { hasText: '!0 =' }).click();
+  await expect(bar).toBeHidden();
+});
+
+test('updates LangRef links when output jumps to an editor line', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.locator('.cm-line', { hasText: 'ret i32 0' }).click();
+  const bar = page.locator('#langref');
+  await expect(
+    bar.locator('.langref-link', { hasText: 'ret' }),
+  ).toHaveAttribute('href', /#i-ret$/);
+
+  await page.locator('.print-line', { hasText: 'Hello from llubi' }).click();
+  await expect(
+    bar.locator('.langref-link', { hasText: 'call' }),
+  ).toHaveAttribute('href', /#i-call$/);
+});
+
+test('indexes only documented LangRef intrinsics', async ({ page }) => {
+  await page.goto('./');
+  const index = await page.evaluate(async () => {
+    const response = await fetch('langref.json');
+    return (await response.json()) as {
+      intrinsics: Record<string, string>;
+      metadata: Record<string, string>;
+    };
+  });
+  expect(index.intrinsics['llvm.abs']).toBe('int-abs');
+  expect(index.intrinsics['llvm.coro.suspend']).toBeUndefined();
+  expect(index.metadata['range']).toBe('range-metadata');
+});
+
 test('suggests defined functions for the entry point', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('#status')).toHaveClass(/status-ok/);

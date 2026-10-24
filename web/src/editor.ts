@@ -361,6 +361,7 @@ export function createEditor(
   onChange: (value: string) => void,
   catalog: CompletionCatalog,
   onLineClick?: (line: number) => boolean,
+  onLineSelect?: (line: number) => void,
 ): EditorController {
   const view = new EditorView({
     parent,
@@ -412,6 +413,12 @@ export function createEditor(
         ]),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) onChange(update.state.doc.toString());
+          if (update.docChanged || update.selectionSet) {
+            const line = update.state.doc.lineAt(
+              update.state.selection.main.head,
+            ).number;
+            onLineSelect?.(line);
+          }
         }),
       ],
     }),

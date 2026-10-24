@@ -19,7 +19,7 @@ an LLVM checkout and does not hard-code a path to one.
   tests.
 - `wasm/`: Emscripten entry points and the bridge into llubi.
 - `scripts/`: toolchain setup, wasm builds, development server, smoke tests, and
-  generated completion/example catalogs.
+  generated completion, example, and LangRef catalogs.
 - `.github/workflows/pages.yml`: CI and GitHub Pages deployment.
 
 ## Local Development
@@ -71,6 +71,11 @@ used automatically when available.
   `IntrinsicImpl.inc`, `TargetLibraryInfo.inc`), plus `.def` metadata names and
   llubi's supported libcall switch. No instruction, intrinsic, or libcall list
   is maintained by hand.
+- A separate LangRef index is generated at build time from `LangRef.md` MyST
+  anchors, headings, syntax blocks, and definition terms. Selecting an editor
+  line shows an editor-width link bar for documented instructions, intrinsics,
+  keywords, and metadata; names not documented in LangRef, such as coroutine
+  intrinsics, are not indexed.
 - Auto/Manual mode switch: Auto hides the Run button and reruns after edits;
   Manual exposes an explicit Run action. Ctrl/Cmd+Enter always runs.
 - The theme picker follows the system light/dark appearance by default and also
@@ -108,8 +113,9 @@ used automatically when available.
 - Interpreter output is structured JSON. Runtime errors get source lines by
   redirecting LLVM's stderr stack trace to a MEMFS file and parsing the
   `Stacktrace:` frames. This keeps the LLVM checkout unmodified.
-- `web/public/build-info.json` is generated at build time and shown in the
-  header.
+- `web/public/build-info.json`, `web/public/completions.json`,
+  `web/public/examples.json`, and `web/public/langref.json` are generated at
+  build time. The build info is shown in the header.
 
 ```bash
 cd web

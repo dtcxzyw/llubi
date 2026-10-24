@@ -767,6 +767,14 @@ button:disabled {
   display: flex;
 }
 
+.editor-stack {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .output-pane {
   flex: 1 1 auto;
   background: var(--panel-2);
@@ -847,6 +855,56 @@ button:disabled {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+.langref {
+  flex: 0 0 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  overflow-x: auto;
+  border-top: 1px solid var(--border-strong);
+  background: var(--panel-2);
+  scrollbar-width: thin;
+}
+
+.langref[hidden] {
+  display: none;
+}
+
+.langref-label {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.langref-link {
+  flex: 0 0 auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 1px 8px;
+  background: var(--panel);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.langref-link:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+}
+
+.langref-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .examples-panel {
