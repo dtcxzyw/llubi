@@ -72,32 +72,38 @@ used automatically when available.
   llubi's supported libcall switch. No instruction, intrinsic, or libcall list
   is maintained by hand.
 - A separate LangRef index is generated at build time from `LangRef.md` MyST
-  anchors, headings, syntax blocks, and definition terms. Selecting an editor
-  line shows an editor-width link bar for documented instructions, intrinsics,
-  keywords, and metadata; names not documented in LangRef, such as coroutine
+  anchors, headings, syntax blocks, and definition terms. A persistent
+  editor-width bar above the IR shows links for documented instructions,
+  intrinsics, keywords, and metadata on the selected line, or a quiet hint when
+  none are documented. Names not documented in LangRef, such as coroutine
   intrinsics, are not indexed.
 - Auto/Manual mode switch: Auto hides the Run button and reruns after edits;
   Manual exposes an explicit Run action. Ctrl/Cmd+Enter always runs.
 - The theme picker follows the system light/dark appearance by default and also
   offers explicit light, dark, colorblind-friendly, and high-contrast themes;
-  the choice is stored locally. Themes meet WCAG AA text and control-boundary
-  contrast, with the high-contrast text palette exceeding AAA, and typography
-  scales to 200% without losing access to content.
+  the System option shows the resolved appearance, the choice is stored
+  locally, and system changes are also polled once a minute. Themes meet WCAG AA
+  text and control-boundary contrast, with the high-contrast text palette
+  exceeding AAA, and typography scales to 200% without losing access to content.
 - Execution happens in a Web Worker; a new edit supersedes an in-flight run,
   and long runs are killed after 10 seconds.
 - Verbose trace rows jump to their instruction, call site, function, or label in
   the editor; clicking a source line or line number jumps back to the matching
-  trace row.
+  trace row. Examples, program output, and trace rows use roving tab stops, with
+  arrow keys moving within each list.
 - The Examples drawer lists two built-in samples first and then every `.ll` test
   from `llvm/test/tools/llubi`, with check lines stripped. RUN lines are kept
   for context and the first RUN line is parsed into playground options when
   possible. The generated test catalog is fetched only when the drawer is
-  opened.
+  opened; on narrow screens the drawer overlays the editor and closes after a
+  selection.
 - Production builds omit JavaScript source maps by default. Set
   `VITE_SOURCEMAP=1` when a local build needs them.
 - Numeric options use explicit minus/plus controls with saturating scaling:
   max steps changes by 10x, other numeric options by 2x, and vscale moves
-  between adjacent powers of two.
+  between adjacent powers of two. Values are normalized against their limits
+  before a run, and parameter explanations are available on hover, keyboard
+  focus, and touch focus.
 - The output pane separates program output from interpreter diagnostics and
   trace with a draggable horizontal divider that starts at 1/6 and 5/6.
 - The toolbar shows the equivalent `; RUN:` line for the last run and copies it

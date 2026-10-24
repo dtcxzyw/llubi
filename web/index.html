@@ -91,7 +91,13 @@
             copy
           </button>
         </div>
-        <button id="params-toggle" class="secondary" type="button" aria-expanded="false">
+        <button
+          id="params-toggle"
+          class="secondary"
+          type="button"
+          aria-expanded="false"
+          aria-controls="params"
+        >
           Parameters
         </button>
       </section>
@@ -139,7 +145,13 @@
               >
                 <span aria-hidden="true">▾</span>
               </button>
-              <ul id="entry-menu" class="combo-menu" role="listbox" hidden></ul>
+              <ul
+                id="entry-menu"
+                class="combo-menu"
+                role="listbox"
+                aria-label="Defined functions"
+                hidden
+              ></ul>
             </div>
           </div>
           <label>
@@ -408,15 +420,31 @@
               <div id="examples-builtin-title" class="examples-group-title">
                 Built-in examples
               </div>
-              <ul id="examples-builtin" class="examples-list"></ul>
+              <ul
+                id="examples-builtin"
+                class="examples-list"
+                aria-labelledby="examples-builtin-title"
+              ></ul>
               <div id="examples-tests-title" class="examples-group-title">
                 llubi tests
               </div>
-              <ul id="examples-tests" class="examples-list"></ul>
+              <ul
+                id="examples-tests"
+                class="examples-list"
+                aria-labelledby="examples-tests-title"
+              ></ul>
                 <p id="examples-empty" class="empty" hidden>No matching examples.</p>
               </div>
             </aside>
             <div class="editor-stack">
+              <nav
+                id="langref"
+                class="langref"
+                aria-label="LangRef references"
+              >
+                <span class="langref-label">LangRef</span>
+                <span class="langref-empty">Loading documentation…</span>
+              </nav>
               <div
                 id="editor"
                 class="editor-host"
@@ -424,12 +452,6 @@
                 data-gramm_editor="false"
                 data-enable-grammarly="false"
               ></div>
-              <nav
-                id="langref"
-                class="langref"
-                aria-label="LangRef references"
-                hidden
-              ></nav>
             </div>
           </div>
         </section>
@@ -499,6 +521,8 @@
         </section>
       </main>
     </div>
+    <div id="param-tooltip" class="param-tooltip" role="tooltip" hidden></div>
+    <span id="copy-status" class="sr-only" role="status" aria-live="polite"></span>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

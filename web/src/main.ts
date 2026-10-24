@@ -35,6 +35,8 @@ const statusElement = byId<HTMLElement>('status');
 const paramsToggle = byId<HTMLButtonElement>('params-toggle');
 const paramsPanel = byId<HTMLElement>('params');
 const langRefBar = byId<HTMLElement>('langref');
+const paramTooltip = byId<HTMLElement>('param-tooltip');
+const copyStatus = byId<HTMLElement>('copy-status');
 const paramsReset = byId<HTMLButtonElement>('params-reset');
 const entryInput = byId<HTMLInputElement>('opt-entry');
 const entryCombo = byId<HTMLElement>('entry-combo');
@@ -173,10 +175,13 @@ let lastRunResult: RunResult | null = null;
 let lastRunCrash: string | null = null;
 let currentBuildInfo: BuildInfo | null = null;
 let langRefIndex: LangRefIndex | null = null;
+let langRefLoaded = false;
 let testExamples: ExampleEntry[] = [];
 let examplesLoaded = false;
 let examplesLoading = false;
 const copyFeedbackTimers = new WeakMap<HTMLButtonElement, number>();
+let copyStatusTimer: number | undefined;
+let suppressOutputSync = false;
 
 const BUILTIN_EXAMPLES: ExampleEntry[] = [
   { name: 'Hello world', ir: HELLO_IR },
@@ -195,12 +200,10 @@ void start();
 
 async function start(): Promise<void> {
   setupTheme();
+  setupParameterHelp();
   void loadBuildInfo();
-  const [catalog, langref] = await Promise.all([
-    loadCompletionCatalog(),
-    loadLangRefIndex(),
-  ]);
-  langRefIndex = langref;
+  const langRefRequest = loadLangRefIndex();
+  const catalog = await loadCompletionCatalog();
   highlightLlvm = createLlvmHighlighter(catalog);
   editor = createEditor(
     byId('editor'),
@@ -208,7 +211,7 @@ async function start(): Promise<void> {
     onEditorChange,
     catalog,
     revealTraceForLine,
-    updateLangRefForLine,
+    onEditorLineSelected,
   );
 
   setupSplitter(splitElement, splitter, editorPane);
@@ -217,20 +220,27 @@ async function start(): Promise<void> {
   applyRunMode(autoRun);
   updateEditorMeta(initialIR);
   updateEntryFunctions(initialIR);
-  updateLangRefForLine(1);
+  onEditorLineSelected(1);
   renderEmpty();
   updateRunCommand(options, null);
   setCheckLines('');
   if (autoRun) scheduleRun(0);
   else runNow();
 
+  void langRefRequest.then((langref) => {
+    langRefIndex = langref;
+    langRefLoaded = true;
+    const line = editor.view.state.doc.lineAt(
+      editor.view.state.selection.main.head,
+    ).number;
+    updateLangRefForLine(line);
+  });
+
   runButton.addEventListener('click', () => runNow());
   modeAuto.addEventListener('click', () => setRunMode(true));
   modeManual.addEventListener('click', () => setRunMode(false));
   paramsToggle.addEventListener('click', () => {
-    const open = paramsPanel.hidden;
-    paramsPanel.hidden = !open;
-    paramsToggle.setAttribute('aria-expanded', String(open));
+    setParamsOpen(paramsPanel.hidden);
   });
   paramsReset.addEventListener('click', () => {
     options = { ...DEFAULT_OPTIONS };
@@ -244,6 +254,9 @@ async function start(): Promise<void> {
   examplesToggle.addEventListener('click', toggleExamplesPanel);
   examplesClose.addEventListener('click', () => closeExamplesPanel(true));
   examplesFilter.addEventListener('input', renderExamples);
+  for (const list of [examplesBuiltin, examplesTests]) {
+    list.addEventListener('keydown', onExampleListKeydown);
+  }
   document.addEventListener('pointerdown', (event) => {
     if (!examplesPanel.classList.contains('is-open')) return;
     const target = event.target as Node;
@@ -254,6 +267,18 @@ async function start(): Promise<void> {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && examplesPanel.classList.contains('is-open'))
       closeExamplesPanel(true);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (
+      event.key === 'Escape' &&
+      !paramsPanel.hidden &&
+      !entryMenuOpen &&
+      (paramsPanel.contains(document.activeElement) ||
+        document.activeElement === paramsToggle)
+    ) {
+      setParamsOpen(false);
+      paramsToggle.focus();
+    }
   });
   copyRunButton.addEventListener('click', () =>
     copyText(runCommandElement.textContent ?? '', copyRunButton),
@@ -297,8 +322,14 @@ async function start(): Promise<void> {
     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
       event.preventDefault();
       runNow();
+      return;
     }
   });
+}
+
+function setParamsOpen(open: boolean): void {
+  paramsPanel.hidden = !open;
+  paramsToggle.setAttribute('aria-expanded', String(open));
 }
 
 function setRunMode(auto: boolean): void {
@@ -345,16 +376,32 @@ function loadThemeChoice(): ThemeChoice {
   return 'system';
 }
 
+function systemTheme(): 'dark' | 'light' {
+  return systemDarkTheme.matches ? 'dark' : 'light';
+}
+
+function updateSystemThemeLabel(): void {
+  const effective = systemTheme();
+  const option = themeSelect.querySelector<HTMLOptionElement>(
+    'option[value="system"]',
+  );
+  if (option) {
+    option.textContent = `System (${effective === 'dark' ? 'Dark' : 'Light'})`;
+  }
+  themeSelect.title = `Theme; System follows the OS light or dark appearance (currently ${effective}).`;
+}
+
 function applyTheme(choice: ThemeChoice): void {
-  const effective =
-    choice === 'system'
-      ? systemDarkTheme.matches
-        ? 'dark'
-        : 'light'
-      : choice;
+  const effective = choice === 'system' ? systemTheme() : choice;
   themeChoice = choice;
   themeSelect.value = choice;
+  updateSystemThemeLabel();
   document.documentElement.dataset.theme = effective;
+}
+
+function syncSystemTheme(): void {
+  updateSystemThemeLabel();
+  if (themeChoice === 'system') applyTheme('system');
 }
 
 function setupTheme(): void {
@@ -366,8 +413,93 @@ function setupTheme(): void {
     setStorage(STORAGE_THEME, choice);
     applyTheme(choice);
   });
-  systemDarkTheme.addEventListener('change', () => {
-    if (themeChoice === 'system') applyTheme('system');
+  systemDarkTheme.addEventListener('change', syncSystemTheme);
+  window.setInterval(syncSystemTheme, 60_000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) syncSystemTheme();
+  });
+}
+
+let parameterTooltipTimer: number | undefined;
+
+function hideParameterTooltip(): void {
+  window.clearTimeout(parameterTooltipTimer);
+  parameterTooltipTimer = undefined;
+  paramTooltip.hidden = true;
+}
+
+function placeParameterTooltip(anchor: HTMLElement): void {
+  const rect = anchor.getBoundingClientRect();
+  const box = paramTooltip.getBoundingClientRect();
+  const gutter = 8;
+  const maxLeft = Math.max(gutter, window.innerWidth - box.width - gutter);
+  const left = Math.min(
+    maxLeft,
+    Math.max(gutter, rect.left + rect.width / 2 - box.width / 2),
+  );
+  let top = rect.top - box.height - 6;
+  if (top < gutter) top = rect.bottom + 6;
+  top = Math.min(
+    window.innerHeight - box.height - gutter,
+    Math.max(gutter, top),
+  );
+  paramTooltip.style.left = `${Math.round(left)}px`;
+  paramTooltip.style.top = `${Math.round(top)}px`;
+}
+
+function showParameterTooltip(anchor: HTMLElement, text: string): void {
+  if (paramsPanel.hidden) return;
+  window.clearTimeout(parameterTooltipTimer);
+  paramTooltip.textContent = text;
+  paramTooltip.hidden = false;
+  placeParameterTooltip(anchor);
+  parameterTooltipTimer = window.setTimeout(hideParameterTooltip, 6000);
+}
+
+function setupParameterHelp(): void {
+  const helps = paramsPanel.querySelectorAll<HTMLElement>('.param-help[title]');
+  helps.forEach((help, index) => {
+    const text = help.getAttribute('title') ?? '';
+    if (!text) return;
+    help.removeAttribute('title');
+    help.dataset.help = text;
+
+    const label = help.closest('label');
+    const control =
+      help instanceof HTMLLabelElement && help.htmlFor
+        ? byId<HTMLElement>(help.htmlFor)
+        : (label?.control as HTMLElement | null);
+    if (!control) return;
+
+    const description = document.createElement('span');
+    description.id = `param-help-${index}`;
+    description.className = 'sr-only';
+    description.textContent = text;
+    document.body.append(description);
+    const describedBy = control.getAttribute('aria-describedby');
+    control.setAttribute(
+      'aria-describedby',
+      describedBy ? `${describedBy} ${description.id}` : description.id,
+    );
+
+    help.addEventListener('pointerenter', () => showParameterTooltip(help, text));
+    help.addEventListener('pointerleave', () => {
+      if (document.activeElement !== control) hideParameterTooltip();
+    });
+    control.addEventListener('focus', () => showParameterTooltip(help, text));
+    control.addEventListener('blur', hideParameterTooltip);
+    control.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') hideParameterTooltip();
+    });
+  });
+
+  paramsPanel.addEventListener('scroll', hideParameterTooltip);
+  window.addEventListener('resize', hideParameterTooltip);
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || paramTooltip.hidden) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    hideParameterTooltip();
   });
 }
 
@@ -482,6 +614,35 @@ function readOptionsFromForm(): RunOptions {
   };
 }
 
+function normalizedNumericValue(config: NumericScale): number {
+  const current = numberValue(
+    config.input,
+    config.min,
+    config.max,
+    config.fallback,
+  );
+  if (!config.powerOfTwo) return current;
+  const maxPower = 2 ** Math.floor(Math.log2(config.max));
+  let normalized = 1;
+  while (normalized < current && normalized < maxPower) normalized *= 2;
+  return Math.min(maxPower, normalized);
+}
+
+function normalizeNumericInputs(): void {
+  let changed = false;
+  for (const config of numericScales) {
+    const value = String(normalizedNumericValue(config));
+    if (config.input.value === value) continue;
+    config.input.value = value;
+    changed = true;
+  }
+  if (!changed) return;
+  updateNumericButtons();
+  options = readOptionsFromForm();
+  saveOptions();
+  updateRunCommand(options, null);
+}
+
 function numberValue(
   input: HTMLInputElement,
   min: number,
@@ -561,6 +722,7 @@ function closeEntryMenu(): void {
   if (!entryMenuOpen) return;
   entryMenuOpen = false;
   entryInput.setAttribute('aria-expanded', 'false');
+  entryInput.removeAttribute('aria-activedescendant');
   entryMenu.hidden = true;
   entryActiveIndex = -1;
 }
@@ -576,12 +738,14 @@ function renderEntryMenu(filter: string): void {
     : -1;
 
   if (entryMatches.length === 0) {
+    entryInput.removeAttribute('aria-activedescendant');
     entryMenu.replaceChildren(element('li', 'combo-empty', 'No defined functions'));
     return;
   }
 
   const items = entryMatches.map((name, index) => {
     const item = element('li', 'combo-option', name);
+    item.id = `entry-option-${index}`;
     item.setAttribute('role', 'option');
     item.setAttribute('aria-selected', String(index === entryActiveIndex));
     if (name === current) item.classList.add('is-current');
@@ -590,6 +754,13 @@ function renderEntryMenu(filter: string): void {
     return item;
   });
   entryMenu.replaceChildren(...items);
+  updateEntryActiveDescendant();
+}
+
+function updateEntryActiveDescendant(): void {
+  const active = entryMenu.children[entryActiveIndex] as HTMLElement | undefined;
+  if (active?.id) entryInput.setAttribute('aria-activedescendant', active.id);
+  else entryInput.removeAttribute('aria-activedescendant');
 }
 
 function setEntryActive(index: number): void {
@@ -599,12 +770,15 @@ function setEntryActive(index: number): void {
     if (item.getAttribute('role') !== 'option') return;
     item.setAttribute('aria-selected', String(itemIndex === entryActiveIndex));
   });
+  updateEntryActiveDescendant();
   const active = entryMenu.children[entryActiveIndex] as HTMLElement | undefined;
   active?.scrollIntoView({ block: 'nearest' });
 }
 
 function onEntryKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
+    event.preventDefault();
+    event.stopPropagation();
     closeEntryMenu();
     return;
   }
@@ -642,7 +816,11 @@ function loadExample(example: ExampleEntry): void {
   inputVersion += 1;
   setCheckLines('');
   updateRunCommand(options, null);
-  scheduleRun(0);
+  if (window.matchMedia('(max-width: 820px)').matches) {
+    closeExamplesPanel(false);
+    editor.view.focus();
+  }
+  runNow();
 }
 
 function toggleExamplesPanel(): void {
@@ -685,12 +863,51 @@ function renderExamples(): void {
   examplesBuiltinTitle.hidden = builtins.length === 0;
   examplesTestsTitle.hidden = tests.length === 0;
   examplesEmpty.hidden = builtins.length + tests.length > 0;
+  for (const list of [examplesBuiltin, examplesTests]) {
+    setExampleListTabStop(list);
+  }
+}
+
+function setExampleListTabStop(list: HTMLUListElement, active?: HTMLElement): void {
+  const buttons = [
+    ...list.querySelectorAll<HTMLButtonElement>('.example-item'),
+  ];
+  const current =
+    active && buttons.includes(active as HTMLButtonElement)
+      ? (active as HTMLButtonElement)
+      : buttons[0];
+  for (const button of buttons) button.tabIndex = button === current ? 0 : -1;
+}
+
+function onExampleListKeydown(event: KeyboardEvent): void {
+  if (
+    event.key !== 'ArrowDown' &&
+    event.key !== 'ArrowUp' &&
+    event.key !== 'Home' &&
+    event.key !== 'End'
+  )
+    return;
+  const list = event.currentTarget as HTMLUListElement;
+  const buttons = [
+    ...list.querySelectorAll<HTMLButtonElement>('.example-item'),
+  ];
+  const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+  if (current < 0) return;
+  event.preventDefault();
+  let next = current;
+  if (event.key === 'ArrowDown') next = Math.min(buttons.length - 1, current + 1);
+  else if (event.key === 'ArrowUp') next = Math.max(0, current - 1);
+  else if (event.key === 'Home') next = 0;
+  else if (event.key === 'End') next = buttons.length - 1;
+  setExampleListTabStop(list, buttons[next]);
+  buttons[next]?.focus();
 }
 
 function createExampleItem(example: ExampleEntry): HTMLLIElement {
   const item = document.createElement('li');
   const button = element('button', 'example-item', example.name);
   button.type = 'button';
+  button.tabIndex = -1;
   button.title = example.run ? `; RUN: ${example.run}` : example.name;
   button.addEventListener('click', () => loadExample(example));
   item.append(button);
@@ -729,6 +946,7 @@ function scheduleRun(delay = 500): void {
 function runNow(): void {
   window.clearTimeout(scheduled);
   scheduled = undefined;
+  normalizeNumericInputs();
   const id = ++activeId;
   if (busy) destroyWorker();
   busy = true;
@@ -1092,6 +1310,11 @@ async function copyText(text: string, button: HTMLButtonElement): Promise<void> 
     copied = fallbackCopy(text);
   }
   if (!copied) return;
+  window.clearTimeout(copyStatusTimer);
+  copyStatus.textContent = 'Copied to clipboard';
+  copyStatusTimer = window.setTimeout(() => {
+    copyStatus.textContent = '';
+  }, 1200);
   const original = button.dataset.copyLabel ?? (button.textContent ?? 'copy').trim();
   button.dataset.copyLabel = original;
   button.textContent = 'copied';
@@ -1177,10 +1400,11 @@ function renderProgramOutput(result: RunResult): void {
     const line = element('button', 'print-line', entry.text || ' ');
     line.type = 'button';
     if (entry.line > 0) {
+      line.dataset.line = String(entry.line);
       line.title = `Jump to line ${entry.line}`;
       line.addEventListener('click', () => {
         activatePrintRow(line);
-        editor.revealLine(entry.line);
+        revealOutputLine(entry.line);
       });
     } else {
       line.disabled = true;
@@ -1188,6 +1412,60 @@ function renderProgramOutput(result: RunResult): void {
     lines.append(line);
   }
   printOutput.replaceChildren(lines);
+  setupPrintRoving(lines);
+}
+
+function setupPrintRoving(container: HTMLElement): void {
+  const buttons = [
+    ...container.querySelectorAll<HTMLButtonElement>('.print-line:not(:disabled)'),
+  ];
+  if (buttons.length === 0) return;
+  const setTabStop = (active: HTMLButtonElement) => {
+    for (const button of buttons) button.tabIndex = button === active ? 0 : -1;
+  };
+  setTabStop(buttons[0]);
+  container.addEventListener('focusin', (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
+      '.print-line',
+    );
+    if (button && !button.disabled) setTabStop(button);
+  });
+  container.addEventListener('keydown', (event) => {
+    const button = (document.activeElement as HTMLElement | null)?.closest<HTMLButtonElement>(
+      '.print-line',
+    );
+    if (!button || button.disabled) return;
+    const index = buttons.indexOf(button);
+    if (index < 0) return;
+    let next = index;
+    if (event.key === 'ArrowDown') next = Math.min(buttons.length - 1, index + 1);
+    else if (event.key === 'ArrowUp') next = Math.max(0, index - 1);
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = buttons.length - 1;
+    else return;
+    event.preventDefault();
+    setTabStop(buttons[next]);
+    buttons[next].focus();
+  });
+}
+
+function setPrintTabStop(active: HTMLElement): void {
+  for (const line of printOutput.querySelectorAll<HTMLButtonElement>(
+    '.print-line:not(:disabled)',
+  )) {
+    line.tabIndex = line === active ? 0 : -1;
+  }
+}
+
+function setTraceTabStop(row: HTMLElement): void {
+  const trace = row.closest('.trace');
+  if (!trace) return;
+  for (const line of trace.querySelectorAll<HTMLButtonElement>('.trace-line')) {
+    line.tabIndex = line.closest('.trace-row') === row ? 0 : -1;
+  }
+  for (const target of trace.querySelectorAll<HTMLButtonElement>('.trace-target')) {
+    target.tabIndex = target.closest('.trace-row') === row ? 0 : -1;
+  }
 }
 
 function activatePrintRow(row: HTMLElement): void {
@@ -1196,10 +1474,13 @@ function activatePrintRow(row: HTMLElement): void {
   for (const active of otherOutput.querySelectorAll('.trace-row.is-active'))
     active.classList.remove('is-active');
   row.classList.add('is-active');
+  setPrintTabStop(row);
 }
 
 function renderTrace(entries: TraceEntry[]): HTMLElement {
   const trace = element('div', 'trace');
+  trace.setAttribute('role', 'group');
+  trace.setAttribute('aria-label', 'Verbose trace');
   for (const entry of entries) {
     if (entry.kind === 'stdout') continue;
     const row = element('div', `trace-row trace-${entry.kind ?? 'instruction'}`);
@@ -1220,7 +1501,7 @@ function renderTrace(entries: TraceEntry[]): HTMLElement {
       text.title = `Jump to line ${entry.line}`;
       text.addEventListener('click', () => {
         activateTraceRow(row);
-        editor.revealLine(entry.line);
+        revealOutputLine(entry.line);
       });
     } else {
       text.disabled = true;
@@ -1239,13 +1520,74 @@ function renderTrace(entries: TraceEntry[]): HTMLElement {
       } ${entry.targetName ?? ''} on line ${entry.targetLine}`;
       target.addEventListener('click', () => {
         activateTraceRow(row);
-        editor.revealLine(entry.targetLine ?? 1);
+        revealOutputLine(entry.targetLine ?? 1);
       });
       row.append(target);
     }
     trace.append(row);
   }
+  setupTraceRoving(trace);
   return trace;
+}
+
+function setupTraceRoving(container: HTMLElement): void {
+  const lines = [
+    ...container.querySelectorAll<HTMLButtonElement>('.trace-line:not(:disabled)'),
+  ];
+  if (lines.length === 0) return;
+  const targets = [
+    ...container.querySelectorAll<HTMLButtonElement>('.trace-target'),
+  ];
+  const setTabStop = (active: HTMLButtonElement) => {
+    const activeRow = active.closest('.trace-row');
+    for (const line of lines) line.tabIndex = line === active ? 0 : -1;
+    for (const target of targets) {
+      target.tabIndex = target.closest('.trace-row') === activeRow ? 0 : -1;
+    }
+  };
+  setTabStop(lines[0]);
+  container.addEventListener('focusin', (event) => {
+    const element = event.target as HTMLElement;
+    const row = element.closest('.trace-row');
+    const line = row?.querySelector<HTMLButtonElement>('.trace-line:not(:disabled)');
+    if (line) setTabStop(line);
+  });
+  container.addEventListener('keydown', (event) => {
+    const active = document.activeElement as HTMLElement | null;
+    if (!active) return;
+    if (active.classList.contains('trace-target')) {
+      if (event.key !== 'ArrowLeft') return;
+      const line = active
+        .closest('.trace-row')
+        ?.querySelector<HTMLButtonElement>('.trace-line');
+      if (!line) return;
+      event.preventDefault();
+      line.focus();
+      return;
+    }
+    const line = active.closest<HTMLButtonElement>('.trace-line');
+    if (!line) return;
+    if (event.key === 'ArrowRight') {
+      const target = line
+        .closest('.trace-row')
+        ?.querySelector<HTMLButtonElement>('.trace-target');
+      if (!target) return;
+      event.preventDefault();
+      target.focus();
+      return;
+    }
+    const index = lines.indexOf(line);
+    if (index < 0) return;
+    let next = index;
+    if (event.key === 'ArrowDown') next = Math.min(lines.length - 1, index + 1);
+    else if (event.key === 'ArrowUp') next = Math.max(0, index - 1);
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = lines.length - 1;
+    else return;
+    event.preventDefault();
+    setTabStop(lines[next]);
+    lines[next].focus();
+  });
 }
 
 function activateTraceRow(row: HTMLElement): void {
@@ -1254,6 +1596,7 @@ function activateTraceRow(row: HTMLElement): void {
   for (const active of printOutput.querySelectorAll('.print-line.is-active'))
     active.classList.remove('is-active');
   row.classList.add('is-active');
+  setTraceTabStop(row);
 }
 
 function stripIrCommentAndStrings(line: string): string {
@@ -1357,13 +1700,23 @@ function collectLangRefReferences(
   return matches.map(({ reference }) => reference);
 }
 
+function renderLangRefEmpty(message: string): void {
+  langRefBar.replaceChildren(
+    element('span', 'langref-label', 'LangRef'),
+    element('span', 'langref-empty', message),
+  );
+  langRefBar.setAttribute('aria-label', `LangRef: ${message}`);
+}
+
 function updateLangRefForLine(line: number): void {
   if (!langRefIndex) {
-    langRefBar.hidden = true;
+    renderLangRefEmpty(
+      langRefLoaded ? 'LangRef is unavailable' : 'Loading documentation…',
+    );
     return;
   }
   if (line < 1 || line > editor.view.state.doc.lines) {
-    langRefBar.hidden = true;
+    renderLangRefEmpty('No current line');
     return;
   }
   const references = collectLangRefReferences(
@@ -1371,8 +1724,7 @@ function updateLangRefForLine(line: number): void {
     langRefIndex,
   );
   if (references.length === 0) {
-    langRefBar.replaceChildren();
-    langRefBar.hidden = true;
+    renderLangRefEmpty('No documented LLVM names on this line');
     return;
   }
 
@@ -1386,27 +1738,71 @@ function updateLangRefForLine(line: number): void {
       link.target = '_blank';
       link.rel = 'noreferrer';
       link.textContent = reference.label;
-      link.title = `Open ${reference.kind} ${reference.label} in the LLVM LangRef`;
+      link.title = `Open ${reference.kind} ${reference.label} in the LLVM LangRef (new tab)`;
       return link;
     }),
   );
   langRefBar.setAttribute('aria-label', `LangRef references for line ${line}`);
-  langRefBar.hidden = false;
 }
 
-function revealTraceForLine(line: number): boolean {
+function findTraceRow(line: number): HTMLElement | null {
   const rows = otherOutput.querySelectorAll<HTMLElement>('.trace-row');
   for (const row of rows) {
     if (
       Number(row.dataset.line) === line ||
       Number(row.dataset.targetLine) === line
     ) {
-      activateTraceRow(row);
-      row.scrollIntoView({ block: 'nearest' });
-      return true;
+      return row;
     }
   }
+  return null;
+}
+
+function findPrintRow(line: number): HTMLElement | null {
+  const rows = printOutput.querySelectorAll<HTMLElement>('.print-line');
+  for (const row of rows) {
+    if (Number(row.dataset.line) === line) return row;
+  }
+  return null;
+}
+
+function clearActiveOutput(): void {
+  for (const active of otherOutput.querySelectorAll('.trace-row.is-active'))
+    active.classList.remove('is-active');
+  for (const active of printOutput.querySelectorAll('.print-line.is-active'))
+    active.classList.remove('is-active');
+}
+
+function syncOutputForLine(line: number, scroll: boolean): boolean {
+  const traceRow = findTraceRow(line);
+  if (traceRow) {
+    activateTraceRow(traceRow);
+    if (scroll) traceRow.scrollIntoView({ block: 'nearest' });
+    return true;
+  }
+  const printRow = findPrintRow(line);
+  if (printRow) {
+    activatePrintRow(printRow);
+    if (scroll) printRow.scrollIntoView({ block: 'nearest' });
+    return true;
+  }
+  clearActiveOutput();
   return false;
+}
+
+function revealTraceForLine(line: number): boolean {
+  return syncOutputForLine(line, true);
+}
+
+function onEditorLineSelected(line: number): void {
+  updateLangRefForLine(line);
+  if (!suppressOutputSync) syncOutputForLine(line, false);
+}
+
+function revealOutputLine(line: number): void {
+  suppressOutputSync = true;
+  editor.revealLine(line);
+  suppressOutputSync = false;
 }
 
 function renderDiagnostic(diagnostic: Diagnostic): HTMLElement {

@@ -436,7 +436,13 @@ export function createEditor(
       if (!gutterElement) return;
       const line = Number(gutterElement.textContent);
       if (!Number.isInteger(line) || line <= 0) return;
-      if (onLineClick(line)) event.preventDefault();
+      event.preventDefault();
+      const position = view.state.doc.line(line).from;
+      view.dispatch({
+        selection: EditorSelection.cursor(position),
+      });
+      view.focus();
+      onLineClick(line);
     });
     view.contentDOM.addEventListener('click', () => {
       const line = view.state.doc.lineAt(view.state.selection.main.head).number;

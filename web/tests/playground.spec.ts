@@ -132,6 +132,16 @@ test('scales numeric parameters with buttons and arrow keys', async ({
   await maxMem.fill('3');
   await maxMem.press('ArrowUp');
   await expect(maxMem).toHaveValue('6');
+
+  await vscale.fill('3');
+  await page.locator('#run').click();
+  await expect(vscale).toHaveValue('4');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+
+  await maxMem.fill('0');
+  await page.locator('#run').click();
+  await expect(maxMem).toHaveValue('1');
+  await expect(page.locator('#run-command')).toContainText('--max-mem=1048576');
 });
 
 test('reports parse errors without running the program', async ({ page }) => {
@@ -212,7 +222,7 @@ test('describes every parameter in a hover tooltip', async ({ page }) => {
     (elements) =>
       elements.map((element) => ({
         label: element.textContent?.trim() ?? '',
-        help: element.getAttribute('title') ?? '',
+        help: element.getAttribute('data-help') ?? '',
       })),
   );
 
@@ -226,8 +236,24 @@ test('describes every parameter in a hover tooltip', async ({ page }) => {
   const maxMemory = page.locator('#params .param-help', {
     hasText: 'Max memory (MiB)',
   });
+  await expect(maxMemory).not.toHaveAttribute('title');
   await maxMemory.hover();
-  await expect(maxMemory).toHaveAttribute('title', /stack, heap/);
+  const tooltip = page.locator('#param-tooltip');
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toContainText('stack, heap, and global variables');
+  await page.mouse.move(0, 0);
+  await expect(tooltip).toBeHidden();
+
+  const maxSteps = page.locator('#opt-max-steps');
+  await maxSteps.focus();
+  await expect(tooltip).toBeVisible();
+  await expect(maxSteps).toHaveAttribute('aria-describedby', /param-help-/);
+  await page.keyboard.press('Escape');
+  await expect(tooltip).toBeHidden();
+  await expect(page.locator('#params')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#params')).toBeHidden();
+  await expect(page.locator('#params-toggle')).toBeFocused();
 });
 
 test('toggles LLVM IR line comments with Mod-/', async ({ page }) => {
@@ -313,8 +339,15 @@ test('shows LangRef links for instruction, intrinsic, keyword, and metadata toke
 `);
 
   const bar = page.locator('#langref');
+  const editorHeightBefore = await page
+    .locator('#editor')
+    .evaluate((node) => node.getBoundingClientRect().height);
   await page.locator('.cm-line', { hasText: '@llvm.abs' }).click();
   await expect(bar).toBeVisible();
+  const editorHeightAfter = await page
+    .locator('#editor')
+    .evaluate((node) => node.getBoundingClientRect().height);
+  expect(Math.abs(editorHeightBefore - editorHeightAfter)).toBeLessThanOrEqual(1);
   await expect(bar.locator('.langref-link', { hasText: 'call' })).toHaveAttribute(
     'href',
     /#i-call$/,
@@ -336,14 +369,19 @@ test('shows LangRef links for instruction, intrinsic, keyword, and metadata toke
     bar.locator('.langref-link', { hasText: 'inbounds' }),
   ).toHaveAttribute('href', /#i-getelementptr$/);
 
-  const widths = await page.evaluate(() => ({
-    editor: document.querySelector('#editor')!.getBoundingClientRect().width,
-    bar: document.querySelector('#langref')!.getBoundingClientRect().width,
+  const geometry = await page.evaluate(() => ({
+    editor: document.querySelector('#editor')!.getBoundingClientRect(),
+    bar: document.querySelector('#langref')!.getBoundingClientRect(),
   }));
-  expect(Math.abs(widths.editor - widths.bar)).toBeLessThanOrEqual(1);
+  expect(Math.abs(geometry.editor.width - geometry.bar.width)).toBeLessThanOrEqual(
+    1,
+  );
+  expect(geometry.bar.bottom).toBeLessThanOrEqual(geometry.editor.top + 1);
+  expect(geometry.bar.top).toBeLessThan(geometry.editor.top);
 
   await page.locator('.cm-line', { hasText: '!0 =' }).click();
-  await expect(bar).toBeHidden();
+  await expect(bar.locator('.langref-link')).toHaveCount(0);
+  await expect(bar).toContainText('No documented LLVM names');
 });
 
 test('updates LangRef links when output jumps to an editor line', async ({
@@ -361,6 +399,36 @@ test('updates LangRef links when output jumps to an editor line', async ({
   await expect(
     bar.locator('.langref-link', { hasText: 'call' }),
   ).toHaveAttribute('href', /#i-call$/);
+
+  await page.locator('.cm-line').first().click();
+  await expect(bar.locator('.langref-link')).toHaveCount(0);
+  await expect(page.locator('.print-line.is-active')).toHaveCount(0);
+  await expect(page.locator('.trace-row.is-active')).toHaveCount(0);
+});
+
+test('clears stale output highlights when the selected line has no match', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await page.locator('.trace-line', { hasText: '%r = call i32' }).click();
+  await expect(page.locator('.trace-row.is-active')).toHaveCount(1);
+
+  await page.locator('.cm-line', { hasText: '%r = call i32' }).click();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('.trace-row[data-line="8"]')).toHaveClass(
+    /is-active/,
+  );
+
+  await page.locator('.cm-line').first().click();
+  await expect(page.locator('.trace-row.is-active')).toHaveCount(0);
+
+  await page.locator('.print-line', { hasText: 'Hello from llubi' }).click();
+  await expect(page.locator('.print-line.is-active')).toHaveCount(1);
+  await expect(page.locator('.trace-row.is-active')).toHaveCount(0);
+
+  await page.locator('.cm-line').first().click();
+  await expect(page.locator('.print-line.is-active')).toHaveCount(0);
 });
 
 test('indexes only documented LangRef intrinsics', async ({ page }) => {
@@ -386,6 +454,10 @@ test('suggests defined functions for the entry point', async ({ page }) => {
   const options = page.locator('#entry-menu [role="option"]');
   await expect(options).toHaveCount(1);
   await expect(options.first()).toHaveText('main');
+  await expect(page.locator('#opt-entry')).toHaveAttribute(
+    'aria-activedescendant',
+    'entry-option-0',
+  );
 
   const editor = page.locator('.cm-content');
   await editor.click();
@@ -442,10 +514,20 @@ done:
   await page.keyboard.insertText(source);
   await page.locator('#run').click();
   await expect(page.locator('.trace-row')).toHaveCount(4);
+  await expect(page.locator('.trace-line[tabindex="0"]')).toHaveCount(1);
+  await page.locator('.trace-line').first().focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('.trace-line').nth(1)).toBeFocused();
+  await expect(page.locator('.trace-target')).toHaveAttribute('tabindex', '0');
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('.trace-target')).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.locator('.trace-line').nth(1)).toBeFocused();
 
   await expect(page.locator('.trace-line .tok-keyword').first()).toBeVisible();
   await page.locator('.trace-line', { hasText: 'Entering function: main' }).click();
   await expect(page.locator('.cm-activeLine')).toContainText('define i32 @main');
+  await expect(page.locator('#langref')).toContainText('define');
 
   await page.locator('.trace-target', { hasText: 'label' }).click();
   await expect(page.locator('.cm-activeLine')).toContainText('done:');
@@ -457,6 +539,7 @@ done:
   await expect(page.locator('.trace-row[data-line="1"]').first()).toHaveClass(
     /is-active/,
   );
+  await expect(page.locator('.cm-activeLine')).toContainText('define i32 @main');
 
   await page
     .locator('.cm-lineNumbers .cm-gutterElement')
@@ -496,6 +579,7 @@ test('copies the RUN line and generated check lines', async ({
     '; RUN: llubi --verbose < %s 2>&1 | FileCheck %s',
   );
   await page.locator('#copy-run').click();
+  await expect(page.locator('#copy-status')).toHaveText('Copied to clipboard');
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     await command.textContent(),
   );
@@ -656,6 +740,15 @@ test('opens the examples panel with built-ins first and generated tests', async 
       { timeout: 10_000 },
     )
     .toBeGreaterThan(100);
+  await expect(
+    page.locator('#examples-builtin .example-item[tabindex="0"]'),
+  ).toHaveCount(1);
+  await expect(
+    page.locator('#examples-tests .example-item[tabindex="0"]'),
+  ).toHaveCount(1);
+  await page.locator('#examples-builtin .example-item').first().focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.locator('#examples-builtin .example-item').nth(1)).toBeFocused();
 
   await page.locator('#examples-filter').fill('deterministic');
   await expect(page.locator('#examples-builtin .example-item')).toHaveCount(0);
@@ -747,6 +840,43 @@ test('the examples drawer squeezes the editor and has explicit close controls', 
   await expect(page.locator('#examples-panel')).toHaveClass(/is-open/);
   await page.locator('#examples-toggle').click();
   await expect(page.locator('#examples-panel')).not.toHaveClass(/is-open/);
+});
+
+test('uses an overlay examples drawer on narrow screens', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('./');
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  const editorWidthBefore = await page
+    .locator('#editor')
+    .evaluate((node) => node.getBoundingClientRect().width);
+
+  await page.locator('#examples-toggle').click();
+  await expect(page.locator('#examples-panel')).toHaveClass(/is-open/);
+  await expect
+    .poll(
+      async () =>
+        page
+          .locator('#examples-panel')
+          .evaluate((node) => node.getBoundingClientRect().width),
+      { timeout: 3000 },
+    )
+    .toBeGreaterThan(300);
+  const editorWidthOpen = await page
+    .locator('#editor')
+    .evaluate((node) => node.getBoundingClientRect().width);
+  expect(Math.abs(editorWidthBefore - editorWidthOpen)).toBeLessThanOrEqual(1);
+
+  await page
+    .locator('#examples-builtin .example-item')
+    .filter({ hasText: 'Hello world' })
+    .click();
+  await expect(page.locator('#examples-panel')).not.toHaveClass(/is-open/);
+  await expect(page.locator('.cm-content')).toBeFocused();
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  const editorWidthAfter = await page
+    .locator('#editor')
+    .evaluate((node) => node.getBoundingClientRect().width);
+  expect(Math.abs(editorWidthBefore - editorWidthAfter)).toBeLessThanOrEqual(1);
 });
 
 test('disables stale test generation after edits', async ({ page }) => {
@@ -869,13 +999,73 @@ test('follows the system appearance until a theme is chosen', async ({
   await expect(page.locator('#status')).toHaveClass(/status-ok/);
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('#theme-select')).toHaveValue('system');
+  await expect(
+    page.locator('#theme-select option[value="system"]'),
+  ).toHaveText('System (Dark)');
 
   await page.emulateMedia({ colorScheme: 'light' });
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(
+    page.locator('#theme-select option[value="system"]'),
+  ).toHaveText('System (Light)');
   await page.reload();
   await expect(page.locator('#status')).toHaveClass(/status-ok/);
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await expect(page.locator('#theme-select')).toHaveValue('system');
+  await expect(
+    page.locator('#theme-select option[value="system"]'),
+  ).toHaveText('System (Light)');
+});
+
+test('polls the system appearance every minute', async ({ page }) => {
+  await page.clock.install();
+  await page.addInitScript(() => {
+    const original = window.matchMedia.bind(window);
+    let dark = false;
+    window.matchMedia = (query: string) => {
+      const media = original(query);
+      if (query !== '(prefers-color-scheme: dark)') return media;
+      return {
+        get matches() {
+          return dark;
+        },
+        media: query,
+        onchange: null,
+        addEventListener() {},
+        removeEventListener() {},
+        addListener() {},
+        removeListener() {},
+        dispatchEvent() {
+          return false;
+        },
+      } as MediaQueryList;
+    };
+    (
+      window as unknown as { setSystemDark(value: boolean): void }
+    ).setSystemDark = (value) => {
+      dark = value;
+    };
+  });
+
+  await page.goto('./');
+  await page.clock.fastForward(1000);
+  await expect(page.locator('#status')).toHaveClass(/status-ok/);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(
+    page.locator('#theme-select option[value="system"]'),
+  ).toHaveText('System (Light)');
+
+  await page.evaluate(() =>
+    (window as unknown as { setSystemDark(value: boolean): void }).setSystemDark(
+      true,
+    ),
+  );
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.clock.fastForward(60_000);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(
+    page.locator('#theme-select option[value="system"]'),
+  ).toHaveText('System (Dark)');
 });
 
 test('applies and persists explicit and accessible themes', async ({
